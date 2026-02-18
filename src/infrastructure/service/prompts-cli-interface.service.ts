@@ -1,10 +1,12 @@
 /* eslint-disable @elsikora/sonar/no-duplicate-string,@elsikora/unicorn/no-process-exit */
+import type { ICliInterfaceServiceSelectOptions } from "../../application/interface/cli-interface-service-select-options.interface";
+import type { ICliInterfaceService } from "../../application/interface/cli-interface-service.interface";
+
 import chalk from "chalk";
 import ora from "ora";
 import prompts from "prompts";
 
-import type { ICliInterfaceServiceSelectOptions } from "../../application/interface/cli-interface-service-select-options.interface";
-import type { ICliInterfaceService } from "../../application/interface/cli-interface-service.interface";
+import { NOTE_BOX_CONTENT_PADDING, NOTE_BOX_PADDING } from "../../domain/constant/numeric.constant";
 
 type TSpinner = {
 	isSpinning?: boolean;
@@ -30,7 +32,7 @@ export class PromptsCliInterface implements ICliInterfaceService {
 			const response: prompts.Answers<string> = await prompts({
 				active: "Yes",
 				inactive: "No",
-				initial: isConfirmedByDefault,
+				["initial"]: isConfirmedByDefault,
 				message,
 				name: "value",
 				type: "toggle",
@@ -53,12 +55,12 @@ export class PromptsCliInterface implements ICliInterfaceService {
 	}
 
 	async groupMultiselect<T>(message: string, options: Record<string, Array<ICliInterfaceServiceSelectOptions>>, isRequired: boolean = false, initialValues?: Array<string>): Promise<Array<T>> {
-		const choices: Array<{ selected: boolean; title: string; value: string }> = [];
+		const choices: Array<prompts.Choice> = [];
 
 		for (const [group, groupOptions] of Object.entries(options)) {
 			for (const option of groupOptions) {
 				choices.push({
-					selected: initialValues?.includes(option.value) ?? false,
+					["selected"]: initialValues?.includes(option.value) ?? false,
 					title: `${group}: ${option.label}`,
 					value: option.value,
 				});
@@ -68,7 +70,7 @@ export class PromptsCliInterface implements ICliInterfaceService {
 		try {
 			const response: prompts.Answers<string> = await prompts({
 				choices,
-				instructions: false,
+				["instructions"]: false,
 				message: `${message} (space to select)`,
 				min: isRequired ? 1 : undefined,
 				name: "values",
@@ -101,18 +103,16 @@ export class PromptsCliInterface implements ICliInterfaceService {
 	}
 
 	async multiselect<T>(message: string, options: Array<ICliInterfaceServiceSelectOptions>, isRequired: boolean = false, initialValues?: Array<string>): Promise<Array<T>> {
-		const choices: Array<{ selected: boolean; title: string; value: string }> = options.map(
-			(option: ICliInterfaceServiceSelectOptions) => ({
-				selected: initialValues?.includes(option.value) ?? false,
-				title: option.label,
-				value: option.value,
-			}),
-		);
+		const choices: Array<prompts.Choice> = options.map((option: ICliInterfaceServiceSelectOptions) => ({
+			["selected"]: initialValues?.includes(option.value) ?? false,
+			title: option.label,
+			value: option.value,
+		}));
 
 		try {
 			const response: prompts.Answers<string> = await prompts({
 				choices,
-				instructions: false,
+				["instructions"]: false,
 				message: `${message} (space to select)`,
 				min: isRequired ? 1 : undefined,
 				name: "values",
@@ -133,12 +133,12 @@ export class PromptsCliInterface implements ICliInterfaceService {
 
 	note(title: string, message: string): void {
 		const lines: Array<string> = message.split("\n");
-		const width: number = Math.max(title.length, ...lines.map((line: string) => line.length)) + 4;
+		const width: number = Math.max(title.length, ...lines.map((line: string) => line.length)) + NOTE_BOX_PADDING;
 
 		const top: string = `┌${"─".repeat(width)}┐`;
 		const bottom: string = `└${"─".repeat(width)}┘`;
-		const paddedTitle: string = ` ${title.padEnd(width - 2)} `;
-		const paddedLines: Array<string> = lines.map((line: string) => ` ${line.padEnd(width - 2)} `);
+		const paddedTitle: string = ` ${title.padEnd(width - NOTE_BOX_CONTENT_PADDING)} `;
+		const paddedLines: Array<string> = lines.map((line: string) => ` ${line.padEnd(width - NOTE_BOX_CONTENT_PADDING)} `);
 
 		process.stdout.write(`${chalk.dim(top)}\n`);
 		process.stdout.write(`${chalk.dim("│") + chalk.bold(paddedTitle) + chalk.dim("│")}\n`);
@@ -202,23 +202,21 @@ export class PromptsCliInterface implements ICliInterfaceService {
 	}
 
 	async text(message: string, _placeholder?: string, initialValue?: string, validate?: (value: string) => Error | string | undefined): Promise<string> {
+		// eslint-disable-next-line @elsikora/sonar/function-return-type
 		const promptsValidate: ((value: string) => boolean | string) | undefined = validate
-			? (value: string) => {
-					const result: Error | string | undefined = validate(value);
+			? (value: string): boolean | string => {
+					const validationResult: Error | string | undefined = validate(value);
+					let output: boolean | string = "Invalid input";
 
-					if (result === undefined) {
-						return true;
+					if (validationResult === undefined) {
+						output = true;
+					} else if (typeof validationResult === "string") {
+						output = validationResult;
+					} else if (validationResult instanceof Error) {
+						output = validationResult.message;
 					}
 
-					if (typeof result === "string") {
-						return result;
-					}
-
-					if (result instanceof Error) {
-						return result.message;
-					}
-
-					return "Invalid input";
+					return output;
 				}
 			: undefined;
 

@@ -1,21 +1,23 @@
-import { mkdir } from "node:fs/promises";
-import { dirname } from "node:path";
+import type { IConfigService } from "../../application/interface/config-service.interface";
+import type { IPrLintFullConfig } from "../../domain/interface/prlint-config.interface";
+
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 
 import { cosmiconfig } from "cosmiconfig";
 import { stringify } from "javascript-stringify";
 
 import { CONFIG_FILE_DIRECTORY } from "../../application/constant/config-file-directory.constant";
 import { CONFIG_MODULE_NAME } from "../../application/constant/config-module-name.constant";
-import type { IConfigService } from "../../application/interface/config-service.interface";
 import { DEFAULT_REQUIRED_SECTIONS } from "../../domain/constant/default-sections.constant";
-import { DEFAULT_FORBIDDEN_PLACEHOLDERS } from "../../domain/constant/forbidden-placeholders.constant";
 import { DEFAULT_TITLE_PATTERN } from "../../domain/constant/default-title-pattern.constant";
-import { DEFAULT_BASE_BRANCH, DEFAULT_DRAFT, DEFAULT_PROHIBITED_BRANCHES } from "../../domain/constant/github.constant";
+import { DEFAULT_FORBIDDEN_PLACEHOLDERS } from "../../domain/constant/forbidden-placeholders.constant";
+import { DEFAULT_BASE_BRANCH, DEFAULT_PROHIBITED_BRANCHES, IS_DEFAULT_DRAFT } from "../../domain/constant/github.constant";
 import { DEFAULT_MAX_RETRIES, DEFAULT_VALIDATION_MAX_RETRIES } from "../../domain/constant/numeric.constant";
 import { DEFAULT_TICKET_PATTERN_FLAGS, DEFAULT_TICKET_PATTERN_SOURCE } from "../../domain/constant/ticket.constant";
+import { ETicketMissingBranchLintBehavior } from "../../domain/enum/ticket-missing-branch-lint-behavior.enum";
 import { ETicketNormalization } from "../../domain/enum/ticket-normalization.enum";
 import { ETicketSource } from "../../domain/enum/ticket-source.enum";
-import type { IPrLintFullConfig } from "../../domain/interface/prlint-config.interface";
 
 const DEFAULT_CONFIG: IPrLintFullConfig = {
 	generation: {
@@ -24,7 +26,7 @@ const DEFAULT_CONFIG: IPrLintFullConfig = {
 	},
 	github: {
 		base: DEFAULT_BASE_BRANCH,
-		draft: DEFAULT_DRAFT,
+		isDraft: IS_DEFAULT_DRAFT,
 		prohibitedBranches: DEFAULT_PROHIBITED_BRANCHES,
 	},
 	lint: {
@@ -33,6 +35,7 @@ const DEFAULT_CONFIG: IPrLintFullConfig = {
 		titlePattern: DEFAULT_TITLE_PATTERN,
 	},
 	ticket: {
+		missingBranchLintBehavior: ETicketMissingBranchLintBehavior.FALLBACK,
 		normalization: ETicketNormalization.PRESERVE,
 		pattern: DEFAULT_TICKET_PATTERN_SOURCE,
 		patternFlags: DEFAULT_TICKET_PATTERN_FLAGS,
@@ -44,7 +47,7 @@ const DEFAULT_CONFIG: IPrLintFullConfig = {
 export class CosmicConfigService implements IConfigService {
 	private cachedConfig: IPrLintFullConfig | undefined;
 
-	private readonly EXPLORER = cosmiconfig(CONFIG_MODULE_NAME, {
+	private readonly EXPLORER: ReturnType<typeof cosmiconfig> = cosmiconfig(CONFIG_MODULE_NAME, {
 		packageProp: `${CONFIG_FILE_DIRECTORY.replace(".", "")}.${CONFIG_MODULE_NAME}`,
 		searchPlaces: [
 			"package.json",
@@ -63,21 +66,21 @@ export class CosmicConfigService implements IConfigService {
 		],
 	});
 
-	/** @returns Whether a prlint config file exists on disk. */
+	/** @returns {Promise<boolean>} Whether a prlint config file exists on disk. */
 	async exists(): Promise<boolean> {
-		const result = await this.EXPLORER.search();
+		const result: Awaited<ReturnType<ReturnType<typeof cosmiconfig>["search"]>> = await this.EXPLORER.search();
 
-		return result !== null && result !== undefined;
+		return result != null;
 	}
 
-	/** @returns Fully resolved config merged with defaults. */
+	/** @returns {Promise<IPrLintFullConfig>} Fully resolved config merged with defaults. */
 	async get(): Promise<IPrLintFullConfig> {
 		if (this.cachedConfig) {
 			return this.cachedConfig;
 		}
 
-		const result = await this.EXPLORER.search();
-		const loaded = (result?.config as Partial<IPrLintFullConfig>) ?? {};
+		const result: Awaited<ReturnType<ReturnType<typeof cosmiconfig>["search"]>> = await this.EXPLORER.search();
+		const loaded: Partial<IPrLintFullConfig> = (result?.config as Partial<IPrLintFullConfig>) ?? {};
 
 		this.cachedConfig = {
 			generation: { ...DEFAULT_CONFIG.generation, ...loaded.generation },
@@ -89,9 +92,11 @@ export class CosmicConfigService implements IConfigService {
 		return this.cachedConfig;
 	}
 
-	/** @param partial - Partial config to deep-merge into the current configuration. */
+	/**
+	 * @param {Partial<IPrLintFullConfig>} partial - Partial config to deep-merge into the current configuration.
+	 */
 	async merge(partial: Partial<IPrLintFullConfig>): Promise<void> {
-		const current = await this.get();
+		const current: IPrLintFullConfig = await this.get();
 
 		this.cachedConfig = {
 			generation: { ...current.generation, ...partial.generation },
@@ -101,18 +106,19 @@ export class CosmicConfigService implements IConfigService {
 		};
 	}
 
-	/** @param config - Full config to persist to disk and cache in memory. */
+	/**
+	 * @param {IPrLintFullConfig} config - Full config to persist to disk and cache in memory.
+	 */
 	async save(config: IPrLintFullConfig): Promise<void> {
 		this.cachedConfig = config;
 
-		const result = await this.EXPLORER.search();
-		const filepath = result?.filepath ?? `${CONFIG_FILE_DIRECTORY}/${CONFIG_MODULE_NAME}.config.js`;
+		const result: Awaited<ReturnType<ReturnType<typeof cosmiconfig>["search"]>> = await this.EXPLORER.search();
+		const filepath: string = result?.filepath ?? `${CONFIG_FILE_DIRECTORY}/${CONFIG_MODULE_NAME}.config.js`;
 
-		const dir = dirname(filepath);
-		await mkdir(dir, { recursive: true });
+		const directory: string = path.dirname(filepath);
+		await mkdir(directory, { ["recursive"]: true });
 
-		const content = `export default ${stringify(config, null, "\t")};\n`;
-		const { writeFile } = await import("node:fs/promises");
-		await writeFile(filepath, content, "utf-8");
+		const content: string = `export default ${stringify(config, null, "\t")};\n`;
+		await writeFile(filepath, content, "utf8");
 	}
 }

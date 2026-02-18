@@ -1,3 +1,8 @@
+import type { IPrLintFullConfig } from "../../domain/interface/prlint-config.interface";
+import type { ICliInterfaceServiceSelectOptions } from "../interface/cli-interface-service-select-options.interface";
+import type { ICliInterfaceService } from "../interface/cli-interface-service.interface";
+import type { IConfigService } from "../interface/config-service.interface";
+
 import { DEFAULT_MAX_RETRIES, DEFAULT_VALIDATION_MAX_RETRIES, MAX_RETRY_COUNT, MIN_RETRY_COUNT } from "../../domain/constant/numeric.constant";
 import { LlmConfiguration } from "../../domain/entity/llm-configuration.entity";
 import { EAnthropicModel } from "../../domain/enum/anthropic-model.enum";
@@ -6,9 +11,6 @@ import { ELlmProvider } from "../../domain/enum/llm-provider.enum";
 import { EOllamaModel } from "../../domain/enum/ollama-model.enum";
 import { EOpenAIModel } from "../../domain/enum/openai-model.enum";
 import { ApiKey } from "../../domain/value-object/api-key.value-object";
-import type { ICliInterfaceService } from "../interface/cli-interface-service.interface";
-import type { ICliInterfaceServiceSelectOptions } from "../interface/cli-interface-service-select-options.interface";
-import type { IConfigService } from "../interface/config-service.interface";
 
 const ENV_KEY_MAP: Record<ELlmProvider, string> = {
 	[ELlmProvider.ANTHROPIC]: "ANTHROPIC_API_KEY",
@@ -20,6 +22,7 @@ const ENV_KEY_MAP: Record<ELlmProvider, string> = {
 /** Orchestrates the interactive LLM configuration flow via CLI prompts. */
 export class ConfigureLlmUseCase {
 	private readonly CLI_INTERFACE: ICliInterfaceService;
+
 	private readonly CONFIG_SERVICE: IConfigService;
 
 	constructor(configService: IConfigService, cliInterface: ICliInterfaceService) {
@@ -27,46 +30,54 @@ export class ConfigureLlmUseCase {
 		this.CONFIG_SERVICE = configService;
 	}
 
-	/** Walks the user through provider, model, and retry configuration. @returns The assembled LlmConfiguration. */
+	/**
+	 * Walks the user through provider, model, and retry configuration.
+	 * @returns {Promise<LlmConfiguration>} The assembled LlmConfiguration.
+	 */
 	public async configureInteractively(): Promise<LlmConfiguration> {
 		this.CLI_INTERFACE.info("Setting up PR generation with LLM...");
 
-		const provider = await this.CLI_INTERFACE.select<ELlmProvider>(
-			"Select your LLM provider:",
-			[
-				{ label: "OpenAI (GPT-5, GPT-4o)", value: ELlmProvider.OPENAI },
-				{ label: "Anthropic (Claude)", value: ELlmProvider.ANTHROPIC },
-				{ label: "Google (Gemini)", value: ELlmProvider.GOOGLE },
-				{ label: "Ollama (Local)", value: ELlmProvider.OLLAMA },
-			],
-		);
+		const provider: ELlmProvider = await this.CLI_INTERFACE.select<ELlmProvider>("Select your LLM provider:", [
+			{ label: "OpenAI (GPT-5, GPT-4o)", value: ELlmProvider.OPENAI },
+			{ label: "Anthropic (Claude)", value: ELlmProvider.ANTHROPIC },
+			{ label: "Google (Gemini)", value: ELlmProvider.GOOGLE },
+			{ label: "Ollama (Local)", value: ELlmProvider.OLLAMA },
+		]);
 
-		const model = await this.selectModelForProvider(provider);
+		const model: string = await this.selectModelForProvider(provider);
 
-		const environmentVariableName = ENV_KEY_MAP[provider];
-		const environmentApiKey = process.env[environmentVariableName];
+		const environmentVariableName: string = this.getEnvironmentVariableName(provider);
+		const environmentApiKey: string | undefined = process.env[environmentVariableName];
 		let credentialValue: string;
 
 		if (environmentApiKey && environmentApiKey.trim().length > 0) {
 			this.CLI_INTERFACE.success(`Found API key in environment variable: ${environmentVariableName}`);
 			credentialValue = environmentApiKey;
 		} else {
-			let keyFormatInfo = "";
+			let keyFormatInfo: string = "";
 
 			switch (provider) {
-				case ELlmProvider.ANTHROPIC:
-				case ELlmProvider.GOOGLE:
-				case ELlmProvider.OPENAI: {
+				case ELlmProvider.ANTHROPIC: {
+					break;
+				}
+
+				case ELlmProvider.GOOGLE: {
 					break;
 				}
 
 				case ELlmProvider.OLLAMA: {
 					keyFormatInfo = " (format: host:port or host:port|custom-model)";
+
+					break;
+				}
+
+				case ELlmProvider.OPENAI: {
 					break;
 				}
 
 				default: {
 					const exhaustiveCheck: never = provider;
+
 					throw new Error(`Unsupported provider: ${String(exhaustiveCheck)}`);
 				}
 			}
@@ -75,61 +86,26 @@ export class ConfigureLlmUseCase {
 			credentialValue = "will-prompt-on-use";
 		}
 
-		let maxRetries = DEFAULT_MAX_RETRIES;
-		let validationMaxRetries = DEFAULT_VALIDATION_MAX_RETRIES;
+		let maxRetries: number = DEFAULT_MAX_RETRIES;
+		let validationMaxRetries: number = DEFAULT_VALIDATION_MAX_RETRIES;
 
-		const configureAdvanced = await this.CLI_INTERFACE.confirm("Would you like to configure advanced settings (retry counts)?", false);
+		const shouldConfigureAdvanced: boolean = await this.CLI_INTERFACE.confirm("Would you like to configure advanced settings (retry counts)?", false);
 
-		if (configureAdvanced) {
-			const retriesInput = await this.CLI_INTERFACE.text(
-				"Max retries for AI generation (default: 3):",
-				String(DEFAULT_MAX_RETRIES),
-				String(DEFAULT_MAX_RETRIES),
-				(value: string) => this.validateRetryCount(value),
-			);
+		if (shouldConfigureAdvanced) {
+			const retriesInput: string = await this.CLI_INTERFACE.text("Max retries for AI generation (default: 3):", String(DEFAULT_MAX_RETRIES), String(DEFAULT_MAX_RETRIES), (value: string) => this.validateRetryCount(value));
 			maxRetries = Number(retriesInput);
 
-			const validationRetriesInput = await this.CLI_INTERFACE.text(
-				"Max retries for validation fixes (default: 3):",
-				String(DEFAULT_VALIDATION_MAX_RETRIES),
-				String(DEFAULT_VALIDATION_MAX_RETRIES),
-				(value: string) => this.validateRetryCount(value),
-			);
+			const validationRetriesInput: string = await this.CLI_INTERFACE.text("Max retries for validation fixes (default: 3):", String(DEFAULT_VALIDATION_MAX_RETRIES), String(DEFAULT_VALIDATION_MAX_RETRIES), (value: string) => this.validateRetryCount(value));
 			validationMaxRetries = Number(validationRetriesInput);
 		}
 
-		const configuration = new LlmConfiguration(provider, new ApiKey(credentialValue), model, maxRetries, validationMaxRetries);
+		const configuration: LlmConfiguration = new LlmConfiguration(provider, new ApiKey(credentialValue), model, maxRetries, validationMaxRetries);
 
 		await this.saveConfiguration(configuration);
 
 		this.CLI_INTERFACE.success("Configuration saved successfully!");
 
 		return configuration;
-	}
-
-	/** Loads the current LLM configuration from disk and environment. @returns The current configuration, or null if not configured. */
-	public async getCurrentConfiguration(): Promise<LlmConfiguration | null> {
-		const config = await this.CONFIG_SERVICE.get();
-		const provider = config.generation.provider;
-
-		if (!provider) {
-			return null;
-		}
-
-		const environmentVariableName = ENV_KEY_MAP[provider];
-		const environmentApiKey = process.env[environmentVariableName];
-
-		if (!environmentApiKey || environmentApiKey.trim().length === 0) {
-			return null;
-		}
-
-		return new LlmConfiguration(
-			provider,
-			new ApiKey(environmentApiKey),
-			config.generation.model,
-			config.generation.retries,
-			config.generation.validationRetries,
-		);
 	}
 
 	public getApiKeyPromptInfo(provider: ELlmProvider): { hint: string; prompt: string } {
@@ -151,13 +127,41 @@ export class ConfigureLlmUseCase {
 			}
 
 			default: {
-				return { hint: "API key", prompt: `Enter your ${provider} API key:` };
+				const exhaustiveCheck: never = provider;
+
+				throw new Error(`Unsupported provider: ${String(exhaustiveCheck)}`);
 			}
 		}
 	}
 
+	/**
+	 * Loads the current LLM configuration from disk and environment.
+	 * @returns {Promise<LlmConfiguration | null>} The current configuration, or null if not configured.
+	 */
+	public async getCurrentConfiguration(): Promise<LlmConfiguration | null> {
+		const config: IPrLintFullConfig = await this.CONFIG_SERVICE.get();
+		const provider: ELlmProvider | undefined = config.generation.provider;
+
+		if (!provider) {
+			return null;
+		}
+
+		const environmentVariableName: string = this.getEnvironmentVariableName(provider);
+		const environmentApiKey: string | undefined = process.env[environmentVariableName];
+
+		if (!environmentApiKey || environmentApiKey.trim().length === 0) {
+			return null;
+		}
+
+		return new LlmConfiguration(provider, new ApiKey(environmentApiKey), config.generation.model, config.generation.retries, config.generation.validationRetries);
+	}
+
+	public getEnvironmentVariableName(provider: ELlmProvider): string {
+		return ENV_KEY_MAP[provider];
+	}
+
 	private async saveConfiguration(configuration: LlmConfiguration): Promise<void> {
-		const current = await this.CONFIG_SERVICE.get();
+		const current: IPrLintFullConfig = await this.CONFIG_SERVICE.get();
 
 		await this.CONFIG_SERVICE.save({
 			...current,
@@ -239,17 +243,17 @@ export class ConfigureLlmUseCase {
 			}
 
 			default: {
-				const _exhaustive: never = provider;
+				const exhaustiveCheck: never = provider;
 
-				throw new Error(`Unsupported provider: ${String(_exhaustive)}`);
+				throw new Error(`Unsupported provider: ${String(exhaustiveCheck)}`);
 			}
 		}
 	}
 
 	private validateRetryCount(value: string): string | undefined {
-		const num = Number.parseInt(value, 10);
+		const parsedNumber: number = Number.parseInt(value, 10);
 
-		if (Number.isNaN(num) || num < MIN_RETRY_COUNT || num > MAX_RETRY_COUNT) {
+		if (Number.isNaN(parsedNumber) || parsedNumber < MIN_RETRY_COUNT || parsedNumber > MAX_RETRY_COUNT) {
 			return "Please enter a number between 1 and 10";
 		}
 

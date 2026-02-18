@@ -3,6 +3,7 @@ import { DEFAULT_FORBIDDEN_PLACEHOLDERS } from "@/domain/constant/forbidden-plac
 import { DEFAULT_REQUIRED_SECTIONS } from "@/domain/constant/default-sections.constant";
 import { DEFAULT_TITLE_PATTERN } from "@/domain/constant/default-title-pattern.constant";
 import { EPrLintIssueCode } from "@/domain/enum/pr-lint-issue-code.enum";
+import { ETicketMissingBranchLintBehavior } from "@/domain/enum/ticket-missing-branch-lint-behavior.enum";
 import { ETicketNormalization } from "@/domain/enum/ticket-normalization.enum";
 import { ETicketSource } from "@/domain/enum/ticket-source.enum";
 import type { IPrContext } from "@/domain/interface/pr-context.interface";
@@ -32,7 +33,8 @@ function buildLintConfig(overrides: Partial<IPrLintConfig> = {}): IPrLintConfig 
 
 function buildTicketConfig(overrides: Partial<ITicketConfig> = {}): ITicketConfig {
 	return {
-		normalization: ETicketNormalization.UPPER,
+		missingBranchLintBehavior: ETicketMissingBranchLintBehavior.FALLBACK,
+		normalization: ETicketNormalization.PRESERVE,
 		pattern: "[A-Za-z]{2,}-\\d+",
 		patternFlags: "",
 		source: ETicketSource.BRANCH_LINT,
@@ -50,7 +52,7 @@ describe("LintPrUseCase", () => {
 	it("passes when title matches pattern, all sections present, no forbidden placeholders", async () => {
 		const result = await useCase.execute(buildContext(), buildLintConfig(), buildTicketConfig());
 
-		expect(result.pass).toBe(true);
+		expect(result.isPassed).toBe(true);
 		expect(result.issues).toHaveLength(0);
 	});
 
@@ -58,23 +60,36 @@ describe("LintPrUseCase", () => {
 		const context = buildContext({ title: "bad title no pattern" });
 		const result = await useCase.execute(context, buildLintConfig(), buildTicketConfig());
 
-		expect(result.pass).toBe(false);
-		expect(result.issues).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({ code: EPrLintIssueCode.TITLE_FORMAT }),
-			]),
-		);
+		expect(result.isPassed).toBe(false);
+		expect(result.issues).toEqual(expect.arrayContaining([expect.objectContaining({ code: EPrLintIssueCode.TITLE_FORMAT })]));
 	});
 
 	it("fails on missing required section", async () => {
 		const context = buildContext({ body: "## Summary\nOnly one section here" });
 		const result = await useCase.execute(context, buildLintConfig());
 
-		expect(result.pass).toBe(false);
+		expect(result.isPassed).toBe(false);
 
 		const sectionIssues = result.issues.filter((i) => i.code === EPrLintIssueCode.BODY_SECTIONS_ORDER);
 
 		expect(sectionIssues.length).toBeGreaterThanOrEqual(1);
+	});
+
+	it("fails when sections are out of order", async () => {
+		const context = buildContext({
+			body: ["## Summary\nDone", "## Changes\nDone", "## Scope\nDone", "## Acceptance Criteria\nDone", "## Test Plan\nDone", "## Risks\nDone", "## Linear\nABC-123"].join("\n\n"),
+		});
+		const result = await useCase.execute(context, buildLintConfig());
+
+		expect(result.isPassed).toBe(false);
+		expect(result.issues).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					code: EPrLintIssueCode.BODY_SECTIONS_ORDER,
+					details: expect.stringContaining("Section order is invalid"),
+				}),
+			]),
+		);
 	});
 
 	it("fails on forbidden placeholder in body", async () => {
@@ -83,24 +98,16 @@ describe("LintPrUseCase", () => {
 		});
 		const result = await useCase.execute(context, buildLintConfig());
 
-		expect(result.pass).toBe(false);
-		expect(result.issues).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({ code: EPrLintIssueCode.FORBIDDEN_PLACEHOLDER }),
-			]),
-		);
+		expect(result.isPassed).toBe(false);
+		expect(result.issues).toEqual(expect.arrayContaining([expect.objectContaining({ code: EPrLintIssueCode.FORBIDDEN_PLACEHOLDER })]));
 	});
 
 	it("fails on forbidden placeholder in title", async () => {
 		const context = buildContext({ title: "WIP feat(core): add login | ABC-123" });
 		const result = await useCase.execute(context, buildLintConfig());
 
-		expect(result.pass).toBe(false);
-		expect(result.issues).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({ code: EPrLintIssueCode.FORBIDDEN_PLACEHOLDER }),
-			]),
-		);
+		expect(result.isPassed).toBe(false);
+		expect(result.issues).toEqual(expect.arrayContaining([expect.objectContaining({ code: EPrLintIssueCode.FORBIDDEN_PLACEHOLDER })]));
 	});
 
 	it("fails on ticket correlation mismatch", async () => {
@@ -110,19 +117,15 @@ describe("LintPrUseCase", () => {
 		});
 		const result = await useCase.execute(context, buildLintConfig(), buildTicketConfig());
 
-		expect(result.pass).toBe(false);
-		expect(result.issues).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({ code: EPrLintIssueCode.TICKET_CORRELATION }),
-			]),
-		);
+		expect(result.isPassed).toBe(false);
+		expect(result.issues).toEqual(expect.arrayContaining([expect.objectContaining({ code: EPrLintIssueCode.TICKET_CORRELATION })]));
 	});
 
 	it("passes with no ticket config (ticket correlation skipped)", async () => {
 		const context = buildContext({ ticketId: "XY-999", title: "feat(core): add login | ABC-123" });
 		const result = await useCase.execute(context, buildLintConfig());
 
-		expect(result.pass).toBe(true);
+		expect(result.isPassed).toBe(true);
 		expect(result.issues).toHaveLength(0);
 	});
 });

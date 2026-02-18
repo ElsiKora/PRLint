@@ -3,9 +3,13 @@ import type { IGitRepoService } from "../../application/interface/git-repo.inter
 
 /** Git repository operations backed by shell git commands. */
 export class GitRepoService implements IGitRepoService {
-	constructor(private readonly COMMAND_SERVICE: ICommandService) {}
+	private readonly COMMAND_SERVICE: ICommandService;
 
-	/** @returns The current branch name. */
+	constructor(commandService: ICommandService) {
+		this.COMMAND_SERVICE = commandService;
+	}
+
+	/** @returns {Promise<string>} The current branch name. */
 	async getBranchName(): Promise<string> {
 		try {
 			return await this.COMMAND_SERVICE.execute("git rev-parse --abbrev-ref HEAD");
@@ -14,7 +18,10 @@ export class GitRepoService implements IGitRepoService {
 		}
 	}
 
-	/** @param base - Base ref to diff against. @returns Unified diff output. */
+	/**
+	 * @param {string} base - Base ref to diff against.
+	 * @returns {Promise<string>} Unified diff output.
+	 */
 	async getDiff(base: string): Promise<string> {
 		try {
 			return await this.COMMAND_SERVICE.execute(`git diff ${base}...HEAD`);
@@ -23,26 +30,29 @@ export class GitRepoService implements IGitRepoService {
 		}
 	}
 
-	/** @param base - Base ref to compare against. @returns List of changed file paths. */
+	/**
+	 * @param {string} base - Base ref to compare against.
+	 * @returns {Promise<Array<string>>} List of changed file paths.
+	 */
 	async getFiles(base: string): Promise<Array<string>> {
 		try {
-			const output = await this.COMMAND_SERVICE.execute(`git diff --name-only ${base}...HEAD`);
+			const output: string = await this.COMMAND_SERVICE.execute(`git diff --name-only ${base}...HEAD`);
 
 			return output
 				.split("\n")
-				.map((f) => f.trim())
+				.map((file: string) => file.trim())
 				.filter(Boolean);
 		} catch {
 			throw new Error(`Cannot list changed files against "${base}". Make sure the branch "${base}" exists and you have at least one commit on the current branch.`);
 		}
 	}
 
-	/** @returns The remote origin URL. */
+	/** @returns {Promise<string>} The remote origin URL. */
 	async getRemoteUrl(): Promise<string> {
 		try {
 			return await this.COMMAND_SERVICE.execute("git remote get-url origin");
 		} catch {
-			throw new Error("Cannot read remote URL. Make sure a remote named \"origin\" is configured.");
+			throw new Error('Cannot read remote URL. Make sure a remote named "origin" is configured.');
 		}
 	}
 }

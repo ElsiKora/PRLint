@@ -1,20 +1,6 @@
 import typescript from "@rollup/plugin-typescript";
 
-const external = [
-	"@anthropic-ai/sdk",
-	"@elsikora/cladi",
-	"@google/generative-ai",
-	"chalk",
-	"cosmiconfig",
-	"dotenv",
-	"dotenv/config",
-	"openai",
-	"ora",
-	"path-to-regexp",
-	"yargs",
-	"yargs/helpers",
-	/^node:.+/,
-];
+const external = ["@anthropic-ai/sdk", "@elsikora/cladi", "@google/generative-ai", "chalk", "cosmiconfig", "dotenv", "dotenv/config", "openai", "ora", "path-to-regexp", "yargs", "yargs/helpers", /^node:.+/];
 
 export default {
 	external,

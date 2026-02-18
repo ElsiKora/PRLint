@@ -12,12 +12,7 @@ export interface ICliInterfaceService {
 	error(message: string): void;
 
 	/** Prompts the user to choose multiple options grouped by category. */
-	groupMultiselect<T>(
-		message: string,
-		options: Record<string, Array<ICliInterfaceServiceSelectOptions>>,
-		isRequired?: boolean,
-		initialValue?: Array<string>,
-	): Promise<Array<T>>;
+	groupMultiselect<T>(message: string, options: Record<string, Array<ICliInterfaceServiceSelectOptions>>, isRequired?: boolean, initialValue?: Array<string>): Promise<Array<T>>;
 
 	/** Displays an error message with contextual error details. */
 	handleError(message: string, error: unknown): void;
@@ -28,16 +23,11 @@ export interface ICliInterfaceService {
 	/** Displays a plain log message. */
 	log(message: string): void;
 
+	/** Prompts the user to choose multiple options. */
+	multiselect<T>(message: string, options: Array<ICliInterfaceServiceSelectOptions>, isRequired?: boolean, initialValue?: Array<string>): Promise<Array<T>>;
+
 	/** Displays a boxed note with a title and body. */
 	note(title: string, message: string): void;
-
-	/** Prompts the user to choose multiple options. */
-	multiselect<T>(
-		message: string,
-		options: Array<ICliInterfaceServiceSelectOptions>,
-		isRequired?: boolean,
-		initialValue?: Array<string>,
-	): Promise<Array<T>>;
 
 	/** Prompts the user to select from a list of options. */
 	select<T>(message: string, options: Array<ICliInterfaceServiceSelectOptions>, initialValue?: string): Promise<T>;
@@ -52,12 +42,7 @@ export interface ICliInterfaceService {
 	success(message: string): void;
 
 	/** Prompts the user for free-text input. */
-	text(
-		message: string,
-		placeholder?: string,
-		initialValue?: string,
-		validate?: (value: string) => Error | string | undefined,
-	): Promise<string>;
+	text(message: string, placeholder?: string, initialValue?: string, validate?: (value: string) => Error | string | undefined): Promise<string>;
 
 	/** Updates the message on the currently active spinner. */
 	updateSpinner(message: string): void;

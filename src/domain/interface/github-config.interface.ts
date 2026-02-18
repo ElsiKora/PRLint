@@ -1,5 +1,5 @@
 export interface IGitHubConfig {
 	base: string;
-	draft: boolean;
+	isDraft: boolean;
 	prohibitedBranches: ReadonlyArray<string>;
 }

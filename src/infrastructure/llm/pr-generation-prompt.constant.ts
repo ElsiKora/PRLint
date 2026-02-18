@@ -8,7 +8,8 @@ RULES:
    - scope: a short kebab-case identifier for the area of change
    - description: a concise imperative-mood summary
    - TICKET-ID: the ticket identifier if provided
-2. The body MUST contain ALL of the following sections in order, each as a level-2 heading (## Section):
+2. If context includes "Required sections (in order)", you MUST use that exact section order and names.
+3. If "Required sections (in order)" is missing, use this default section order:
    - ## Summary
    - ## Scope
    - ## Changes
@@ -16,10 +17,10 @@ RULES:
    - ## Test Plan
    - ## Risks
    - ## Linear
-3. NEVER use any placeholder text such as WIP, TODO, TEMPLATE, lorem ipsum, [ ], <replace-me>, or HTML comments (<!--).
-4. Write concrete, specific content for every section.
-5. The Linear section should reference the ticket ID if available.
-6. If the body contains a "## Lint Issues to Fix" section, those are issues from a previous attempt. Generate a NEW title and body that fixes ALL listed issues.
+4. NEVER use any placeholder text such as WIP, TODO, TEMPLATE, lorem ipsum, [ ], <replace-me>, or HTML comments (<!--).
+5. Write concrete, specific content for every section.
+6. The Linear section should reference the ticket ID if available.
+7. If the body contains a "## Lint Issues to Fix" section, those are issues from a previous attempt. Generate a NEW title and body that fixes ALL listed issues.
 
 RESPONSE FORMAT — output EXACTLY:
 TITLE: <your title here>

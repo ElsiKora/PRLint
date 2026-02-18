@@ -1,14 +1,14 @@
 export default {
-  maxRetries: 3,
-  mode: 'auto',
-  model: 'claude-opus-4-5',
-  provider: 'anthropic',
-  validationMaxRetries: 3,
-  ticket: {
-    missingBranchLintBehavior: 'fallback',
-    normalization: 'preserve',
-    pattern: '[a-z]{2,}-[0-9]+',
-    patternFlags: 'i',
-    source: 'auto'
-  }
+	maxRetries: 3,
+	mode: "auto",
+	model: "claude-opus-4-5",
+	provider: "anthropic",
+	ticket: {
+		missingBranchLintBehavior: "fallback",
+		normalization: "preserve",
+		pattern: "[a-z]{2,}-[0-9]+",
+		patternFlags: "i",
+		source: "auto",
+	},
+	validationMaxRetries: 3,
 };

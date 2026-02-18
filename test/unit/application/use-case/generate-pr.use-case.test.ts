@@ -35,15 +35,11 @@ describe("GeneratePrUseCase", () => {
 	});
 
 	it("throws when no matching provider", async () => {
-		await expect(useCase.execute(buildContext(), ELlmProvider.ANTHROPIC, "claude-3")).rejects.toThrow(
-			"No LLM service registered for provider: anthropic",
-		);
+		await expect(useCase.execute(buildContext(), ELlmProvider.ANTHROPIC, "claude-3")).rejects.toThrow("No LLM service registered for provider: anthropic");
 	});
 
 	it("retries on failure", async () => {
-		vi.mocked(mockLlm.generate)
-			.mockRejectedValueOnce(new Error("rate limit"))
-			.mockResolvedValueOnce({ body: "Retry body", title: "Retry title" });
+		vi.mocked(mockLlm.generate).mockRejectedValueOnce(new Error("rate limit")).mockResolvedValueOnce({ body: "Retry body", title: "Retry title" });
 
 		await expect(useCase.execute(buildContext(), ELlmProvider.OPENAI, "gpt-4")).rejects.toThrow("rate limit");
 

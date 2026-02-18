@@ -50,8 +50,6 @@ describe("FixPrUseCase", () => {
 	it("returns undefined when retries exhausted", async () => {
 		vi.mocked(mockLlm.generate).mockRejectedValue(new Error("LLM unavailable"));
 
-		await expect(
-			useCase.execute(buildContext(), ELlmProvider.OPENAI, "gpt-4", SAMPLE_ISSUES),
-		).rejects.toThrow("LLM unavailable");
+		await expect(useCase.execute(buildContext(), ELlmProvider.OPENAI, "gpt-4", SAMPLE_ISSUES)).rejects.toThrow("LLM unavailable");
 	});
 });

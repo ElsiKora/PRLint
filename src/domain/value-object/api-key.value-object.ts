@@ -1,4 +1,4 @@
-import { MIN_API_KEY_LENGTH, REDACTED_LENGTH } from "../constant/numeric.constant";
+import { MIN_API_KEY_LENGTH, REDACTED_LENGTH, REDACTED_SEGMENTS_COUNT } from "../constant/numeric.constant";
 
 /** Immutable value object representing an API key with validation and redaction. */
 export class ApiKey {
@@ -12,24 +12,27 @@ export class ApiKey {
 		this.VALUE = value.trim();
 	}
 
-	/** @returns Whether this API key is equal to another by value. */
+	/**
+	 * @param {ApiKey} other - The other API key to compare.
+	 * @returns {boolean} Whether this API key is equal to another by value.
+	 */
 	public equals(other: ApiKey): boolean {
 		return this.VALUE === other.VALUE;
 	}
 
-	/** @returns The raw API key string. */
+	/** @returns {string} The raw API key string. */
 	public getValue(): string {
 		return this.VALUE;
 	}
 
-	/** @returns Whether the API key meets minimum length and is not a placeholder. */
+	/** @returns {boolean} Whether the API key meets minimum length and is not a placeholder. */
 	public isValid(): boolean {
 		return this.VALUE.length > MIN_API_KEY_LENGTH && !this.VALUE.includes("your-api-key");
 	}
 
-	/** @returns A redacted version of the API key for safe display. */
+	/** @returns {string} A redacted version of the API key for safe display. */
 	public toRedacted(): string {
-		if (this.VALUE.length <= REDACTED_LENGTH * 2) {
+		if (this.VALUE.length <= REDACTED_LENGTH * REDACTED_SEGMENTS_COUNT) {
 			return "****";
 		}
 
