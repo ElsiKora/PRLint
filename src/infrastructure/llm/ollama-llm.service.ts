@@ -1,8 +1,6 @@
 import type { ILlmService } from "../../application/interface/llm-service.interface";
 import type { IPrContext } from "../../domain/interface/pr-context.interface";
 
-import { fetch } from "undici";
-
 import { ELlmProvider } from "../../domain/enum/llm-provider.enum";
 
 import { buildUserPrompt } from "./build-user-prompt.function";
@@ -32,7 +30,8 @@ export class OllamaLlmService implements ILlmService {
 			["stream"]: false,
 		};
 
-		const response: Awaited<ReturnType<typeof fetch>> = await fetch(`${this.BASE_URL}/api/chat`, {
+		// eslint-disable-next-line @elsikora/node/no-unsupported-features/node-builtins
+		const response: Response = await fetch(`${this.BASE_URL}/api/chat`, {
 			body: JSON.stringify(requestBody),
 			headers: { "Content-Type": "application/json" },
 			method: "POST",
