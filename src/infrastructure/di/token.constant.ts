@@ -1,0 +1,13 @@
+export const BranchLintConfigServiceToken: symbol = Symbol.for("BranchLintConfigService");
+export const CollectContextUseCaseToken: symbol = Symbol.for("CollectContextUseCase");
+export const CommandServiceToken: symbol = Symbol.for("CommandService");
+export const ConfigServiceToken: symbol = Symbol.for("ConfigService");
+export const CreateOrUpdatePrUseCaseToken: symbol = Symbol.for("CreateOrUpdatePrUseCase");
+export const FileSystemServiceToken: symbol = Symbol.for("FileSystemService");
+export const FixPrUseCaseToken: symbol = Symbol.for("FixPrUseCase");
+export const GeneratePrUseCaseToken: symbol = Symbol.for("GeneratePrUseCase");
+export const GitHubRepoServiceToken: symbol = Symbol.for("GitHubRepoService");
+export const GitRepoServiceToken: symbol = Symbol.for("GitRepoService");
+export const LintPrUseCaseToken: symbol = Symbol.for("LintPrUseCase");
+export const LlmServicesToken: symbol = Symbol.for("LlmServices");
+export const TicketIdParserToken: symbol = Symbol.for("TicketIdParser");
