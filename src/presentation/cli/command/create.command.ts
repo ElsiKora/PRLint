@@ -18,6 +18,13 @@ import { GoogleLlmService } from "../../../infrastructure/llm/google-llm.service
 import { OllamaLlmService } from "../../../infrastructure/llm/ollama-llm.service";
 import { OpenAILlmService } from "../../../infrastructure/llm/openai-llm.service";
 
+const ENVIRONMENT_VARIABLE_NAMES: Record<ELlmProvider, string> = {
+	[ELlmProvider.ANTHROPIC]: "ANTHROPIC_API_KEY",
+	[ELlmProvider.GOOGLE]: "GOOGLE_API_KEY",
+	[ELlmProvider.OLLAMA]: "OLLAMA_API_KEY",
+	[ELlmProvider.OPENAI]: "OPENAI_API_KEY",
+};
+
 function resolveLlmService(config: LlmConfiguration): ILlmService {
 	const key = config.getApiKey().getValue();
 
@@ -47,43 +54,81 @@ export class CreateCommand {
 
 			spinner?.stop();
 
-			let llmConfig: LlmConfiguration;
-			const currentConfig = await configureLlm.getCurrentConfiguration();
+			let llmConfig: LlmConfiguration | null = await configureLlm.getCurrentConfiguration();
+			const isConfigExists = await configService.exists();
 
-			if (currentConfig) {
-				const useExisting = await cliInterface.confirm(
-					`Found existing configuration (${currentConfig.getProvider()}, ${currentConfig.getModel()}). Use it?`,
-					true,
-				);
+			if (isConfigExists) {
+				const config = await configService.get();
+				const provider = config.generation.provider;
+				const model = config.generation.model;
+				const modeInfo =
+					provider && model
+						? `${provider} provider, ${model} model`
+						: provider
+							? `${provider} provider`
+							: "incomplete generation config";
+				const isUseExisting = await cliInterface.confirm(`Found existing configuration (${modeInfo}). Use it?`, true);
 
-				if (useExisting) {
-					if (currentConfig.isConfigured()) {
-						llmConfig = currentConfig;
-					} else {
-						const apiKey = await cliInterface.text(
-							`Enter your ${currentConfig.getProvider()} API key`,
-							"sk-...",
-							undefined,
-							(v: string) => (v.length > 0 ? undefined : "API key is required"),
-						);
-						llmConfig = currentConfig.withApiKey(new ApiKey(apiKey));
-					}
-				} else {
+				if (!isUseExisting) {
+					cliInterface.info("Let's reconfigure...");
 					llmConfig = await configureLlm.configureInteractively();
+
+					if (llmConfig.getApiKey().getValue() === "will-prompt-on-use") {
+						const { hint, prompt } = configureLlm.getApiKeyPromptInfo(llmConfig.getProvider());
+						const credentialValue = await cliInterface.text(prompt, hint, "", (value: string) => {
+							if (!value || value.trim().length === 0) {
+								return "API key is required";
+							}
+
+							return;
+						});
+						llmConfig = llmConfig.withApiKey(new ApiKey(credentialValue));
+					}
+				} else if (provider && !llmConfig) {
+					const environmentVariableName = ENVIRONMENT_VARIABLE_NAMES[provider];
+					cliInterface.warn(`API key not found in ${environmentVariableName} environment variable.`);
+
+					const { hint, prompt } = configureLlm.getApiKeyPromptInfo(provider);
+					const credentialValue = await cliInterface.text(prompt, hint, "", (value: string) => {
+						if (!value || value.trim().length === 0) {
+							return "API key is required";
+						}
+
+						return;
+					});
+					llmConfig = new LlmConfiguration(
+						provider,
+						new ApiKey(credentialValue),
+						model,
+						config.generation.retries,
+						config.generation.validationRetries,
+					);
 				}
 			} else {
-				cliInterface.info("No LLM configuration found. Let's set it up!");
+				cliInterface.info("No configuration found. Let's set it up!");
 				llmConfig = await configureLlm.configureInteractively();
+
+				if (llmConfig.getApiKey().getValue() === "will-prompt-on-use") {
+					const { hint, prompt } = configureLlm.getApiKeyPromptInfo(llmConfig.getProvider());
+					const credentialValue = await cliInterface.text(prompt, hint, "", (value: string) => {
+						if (!value || value.trim().length === 0) {
+							return "API key is required";
+						}
+
+						return;
+					});
+					llmConfig = llmConfig.withApiKey(new ApiKey(credentialValue));
+				}
 			}
 
-			if (llmConfig.getApiKey().getValue() === "will-prompt-on-use") {
-				const apiKey = await cliInterface.text(
-					`Enter your ${llmConfig.getProvider()} API key`,
-					"sk-...",
-					undefined,
-					(v: string) => (v.length > 0 ? undefined : "API key is required"),
-				);
-				llmConfig = llmConfig.withApiKey(new ApiKey(apiKey));
+			if (!llmConfig) {
+				throw new Error("Failed to configure LLM settings");
+			}
+
+			const model = llmConfig.getModel();
+
+			if (!model) {
+				throw new Error("No model configured. Re-run setup and select an LLM model.");
 			}
 
 			const llmServices = this.CONTAINER.get<Array<ILlmService>>(LlmServicesToken) ?? [];
@@ -96,7 +141,6 @@ export class CreateCommand {
 			}
 
 			const config = await configService.get();
-			const model = llmConfig.getModel() ?? "";
 			const context = await collectContext.execute(config.github.base);
 
 			if (spinner) spinner.text = "Generating PR content...";

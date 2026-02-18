@@ -1,3 +1,4 @@
+/* eslint-disable @elsikora/sonar/no-duplicate-string,@elsikora/unicorn/no-process-exit */
 import chalk from "chalk";
 import ora from "ora";
 import prompts from "prompts";
@@ -5,149 +6,250 @@ import prompts from "prompts";
 import type { ICliInterfaceServiceSelectOptions } from "../../application/interface/cli-interface-service-select-options.interface";
 import type { ICliInterfaceService } from "../../application/interface/cli-interface-service.interface";
 
-/** CLI interface implementation backed by prompts, chalk, and ora. */
-export class PromptsCliInterface implements ICliInterfaceService {
-	private spinner = ora();
+type TSpinner = {
+	isSpinning?: boolean;
+	start(): TSpinner;
+	stop(): TSpinner;
+	text: string;
+};
 
-	/** Clears the terminal screen. */
-	clear(): void {
-		console.clear();
+/** Implementation of the CLI interface service using prompts. */
+export class PromptsCliInterface implements ICliInterfaceService {
+	private spinner: TSpinner;
+
+	constructor() {
+		this.spinner = ora();
 	}
 
-	/** @param message - Confirmation prompt message. @param isConfirmedByDefault - Default boolean value. @returns User's boolean response. */
-	async confirm(message: string, isConfirmedByDefault?: boolean): Promise<boolean> {
-		const response = await prompts({
-			active: "Yes",
-			inactive: "No",
-			initial: isConfirmedByDefault ?? false,
-			message,
-			name: "value",
-			type: "toggle",
-		});
+	clear(): void {
+		process.stdout.write("\u001Bc");
+	}
 
-		if (response.value === undefined) {
+	async confirm(message: string, isConfirmedByDefault: boolean = false): Promise<boolean> {
+		try {
+			const response: prompts.Answers<string> = await prompts({
+				active: "Yes",
+				inactive: "No",
+				initial: isConfirmedByDefault,
+				message,
+				name: "value",
+				type: "toggle",
+			});
+
+			if (response.value === undefined) {
+				this.error("Operation cancelled by user");
+				process.exit(0);
+			}
+
+			return response.value as boolean;
+		} catch {
+			this.error("Operation cancelled by user");
 			process.exit(0);
 		}
-
-		return response.value as boolean;
 	}
 
-	/** @param message - Error message to display. */
 	error(message: string): void {
-		process.stderr.write(chalk.red("✖ ") + message + "\n");
+		process.stderr.write(`${chalk.red(message)}\n`);
 	}
 
-	/** @param message - Error context message. @param error - Error to handle and display. */
+	async groupMultiselect<T>(message: string, options: Record<string, Array<ICliInterfaceServiceSelectOptions>>, isRequired: boolean = false, initialValues?: Array<string>): Promise<Array<T>> {
+		const choices: Array<{ selected: boolean; title: string; value: string }> = [];
+
+		for (const [group, groupOptions] of Object.entries(options)) {
+			for (const option of groupOptions) {
+				choices.push({
+					selected: initialValues?.includes(option.value) ?? false,
+					title: `${group}: ${option.label}`,
+					value: option.value,
+				});
+			}
+		}
+
+		try {
+			const response: prompts.Answers<string> = await prompts({
+				choices,
+				instructions: false,
+				message: `${message} (space to select)`,
+				min: isRequired ? 1 : undefined,
+				name: "values",
+				type: "multiselect",
+			});
+
+			if (response.values === undefined) {
+				this.error("Operation cancelled by user");
+				process.exit(0);
+			}
+
+			return response.values as Array<T>;
+		} catch {
+			this.error("Operation cancelled by user");
+			process.exit(0);
+		}
+	}
+
 	handleError(message: string, error: unknown): void {
-		this.error(message);
-		this.log(String(error));
+		process.stderr.write(`${chalk.red(message)}\n`);
+		process.stderr.write(`${String(error)}\n`);
 	}
 
-	/** @param message - Informational message to display. */
 	info(message: string): void {
-		process.stdout.write(chalk.blue("ℹ ") + message + "\n");
+		process.stdout.write(`${chalk.blue(message)}\n`);
 	}
 
-	/** @param message - Message to log to stdout. */
 	log(message: string): void {
-		process.stdout.write(message + "\n");
+		process.stdout.write(`${message}\n`);
 	}
 
-	/** @param title - Note title. @param message - Note body content. */
+	async multiselect<T>(message: string, options: Array<ICliInterfaceServiceSelectOptions>, isRequired: boolean = false, initialValues?: Array<string>): Promise<Array<T>> {
+		const choices: Array<{ selected: boolean; title: string; value: string }> = options.map(
+			(option: ICliInterfaceServiceSelectOptions) => ({
+				selected: initialValues?.includes(option.value) ?? false,
+				title: option.label,
+				value: option.value,
+			}),
+		);
+
+		try {
+			const response: prompts.Answers<string> = await prompts({
+				choices,
+				instructions: false,
+				message: `${message} (space to select)`,
+				min: isRequired ? 1 : undefined,
+				name: "values",
+				type: "multiselect",
+			});
+
+			if (response.values === undefined) {
+				this.error("Operation cancelled by user");
+				process.exit(0);
+			}
+
+			return response.values as Array<T>;
+		} catch {
+			this.error("Operation cancelled by user");
+			process.exit(0);
+		}
+	}
+
 	note(title: string, message: string): void {
-		const lines = message.split("\n");
-		const contentWidth = Math.max(title.length + 2, ...lines.map((l) => l.length));
-		const boxWidth = contentWidth + 3;
-		const dashes = contentWidth - title.length;
+		const lines: Array<string> = message.split("\n");
+		const width: number = Math.max(title.length, ...lines.map((line: string) => line.length)) + 4;
 
-		const top = chalk.dim("┌─") + chalk.bold(` ${title} `) + chalk.dim("─".repeat(dashes) + "┐");
-		const empty = chalk.dim("│") + " ".repeat(boxWidth) + chalk.dim("│");
-		const bottom = chalk.dim("└" + "─".repeat(boxWidth) + "┘");
+		const top: string = `┌${"─".repeat(width)}┐`;
+		const bottom: string = `└${"─".repeat(width)}┘`;
+		const paddedTitle: string = ` ${title.padEnd(width - 2)} `;
+		const paddedLines: Array<string> = lines.map((line: string) => ` ${line.padEnd(width - 2)} `);
 
-		process.stdout.write(top + "\n");
-		process.stdout.write(empty + "\n");
+		process.stdout.write(`${chalk.dim(top)}\n`);
+		process.stdout.write(`${chalk.dim("│") + chalk.bold(paddedTitle) + chalk.dim("│")}\n`);
 
-		for (const line of lines) {
-			const padding = " ".repeat(contentWidth - line.length);
-			process.stdout.write(chalk.dim("│") + "  " + line + padding + " " + chalk.dim("│") + "\n");
+		if (lines.length > 0) {
+			const separator: string = `├${"─".repeat(width)}┤`;
+			process.stdout.write(`${chalk.dim(separator)}\n`);
+
+			for (const line of paddedLines) {
+				process.stdout.write(`${chalk.dim("│") + chalk.dim(line) + chalk.dim("│")}\n`);
+			}
 		}
 
-		process.stdout.write(empty + "\n");
-		process.stdout.write(bottom + "\n");
+		process.stdout.write(`${chalk.dim(bottom)}\n`);
 	}
 
-	/** @param message - Select prompt message. @param options - Available options. @param initialValue - Default selection value. @returns Selected value. */
 	async select<T>(message: string, options: Array<ICliInterfaceServiceSelectOptions>, initialValue?: string): Promise<T> {
-		const initialIndex = initialValue !== undefined ? options.findIndex((o) => o.value === initialValue) : undefined;
+		const choices: Array<{ title: string; value: string }> = options.map((option: ICliInterfaceServiceSelectOptions) => ({
+			title: option.label,
+			value: option.value,
+		}));
 
-		const response = await prompts({
-			choices: options.map((o) => ({ title: o.label, value: o.value })),
-			initial: initialIndex !== undefined && initialIndex >= 0 ? initialIndex : 0,
-			message,
-			name: "value",
-			type: "select",
-		});
+		const initialIndex: number | undefined = initialValue ? choices.findIndex((choice: { title: string; value: string }) => choice.value === initialValue) : undefined;
 
-		if (response.value === undefined) {
-			return process.exit(0);
+		try {
+			const response: prompts.Answers<string> = await prompts({
+				choices,
+				initial: initialIndex === -1 ? 0 : initialIndex,
+				message,
+				name: "value",
+				type: "select",
+			});
+
+			if (response.value === undefined) {
+				this.error("Operation cancelled by user");
+				process.exit(0);
+			}
+
+			return response.value as T;
+		} catch {
+			this.error("Operation cancelled by user");
+			process.exit(0);
 		}
-
-		return response.value as unknown as T;
 	}
 
-	/** @param message - Spinner start message. */
 	startSpinner(message: string): void {
+		this.spinner.stop();
 		this.spinner = ora(message).start();
 	}
 
-	/** @param message - Optional final success message. */
 	stopSpinner(message?: string): void {
+		this.spinner.stop();
+
 		if (message) {
-			this.spinner.succeed(message);
-		} else {
-			this.spinner.stop();
+			process.stdout.write(`${message}\n`);
 		}
 	}
 
-	/** @param message - Success message to display. */
 	success(message: string): void {
-		process.stdout.write(chalk.green("✔ ") + message + "\n");
+		process.stdout.write(`${chalk.green(message)}\n`);
 	}
 
-	/** @param message - Prompt message. @param _placeholder - Placeholder text hint (unused by prompts adapter). @param initialValue - Default text value. @param validate - Validation function returning Error, string, or undefined. @returns User's text input. */
 	async text(message: string, _placeholder?: string, initialValue?: string, validate?: (value: string) => Error | string | undefined): Promise<string> {
-		const adaptedValidate = validate
-			? (value: string): boolean | string => {
-					const result = validate(value);
-					if (result === undefined) return true;
-					if (result instanceof Error) return result.message;
+		const promptsValidate: ((value: string) => boolean | string) | undefined = validate
+			? (value: string) => {
+					const result: Error | string | undefined = validate(value);
 
-					return result;
+					if (result === undefined) {
+						return true;
+					}
+
+					if (typeof result === "string") {
+						return result;
+					}
+
+					if (result instanceof Error) {
+						return result.message;
+					}
+
+					return "Invalid input";
 				}
 			: undefined;
 
-		const response = await prompts({
-			initial: initialValue,
-			message,
-			name: "value",
-			type: "text",
-			validate: adaptedValidate,
-		});
+		try {
+			const response: prompts.Answers<string> = await prompts({
+				initial: initialValue,
+				message,
+				name: "value",
+				type: "text",
+				validate: promptsValidate,
+			});
 
-		if (response.value === undefined) {
+			if (response.value === undefined) {
+				this.error("Operation cancelled by user");
+				process.exit(0);
+			}
+
+			return response.value as string;
+		} catch {
+			this.error("Operation cancelled by user");
 			process.exit(0);
 		}
-
-		return response.value as string;
 	}
 
-	/** @param message - Updated spinner text. */
 	updateSpinner(message: string): void {
-		this.spinner.text = message;
+		if (this.spinner?.isSpinning) {
+			this.spinner.text = message;
+		}
 	}
 
-	/** @param message - Warning message to display. */
 	warn(message: string): void {
-		process.stdout.write(chalk.yellow("⚠ ") + message + "\n");
+		process.stdout.write(`${chalk.yellow(message)}\n`);
 	}
 }

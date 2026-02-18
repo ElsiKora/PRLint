@@ -11,6 +11,14 @@ export interface ICliInterfaceService {
 	/** Displays an error message. */
 	error(message: string): void;
 
+	/** Prompts the user to choose multiple options grouped by category. */
+	groupMultiselect<T>(
+		message: string,
+		options: Record<string, Array<ICliInterfaceServiceSelectOptions>>,
+		isRequired?: boolean,
+		initialValue?: Array<string>,
+	): Promise<Array<T>>;
+
 	/** Displays an error message with contextual error details. */
 	handleError(message: string, error: unknown): void;
 
@@ -22,6 +30,14 @@ export interface ICliInterfaceService {
 
 	/** Displays a boxed note with a title and body. */
 	note(title: string, message: string): void;
+
+	/** Prompts the user to choose multiple options. */
+	multiselect<T>(
+		message: string,
+		options: Array<ICliInterfaceServiceSelectOptions>,
+		isRequired?: boolean,
+		initialValue?: Array<string>,
+	): Promise<Array<T>>;
 
 	/** Prompts the user to select from a list of options. */
 	select<T>(message: string, options: Array<ICliInterfaceServiceSelectOptions>, initialValue?: string): Promise<T>;
