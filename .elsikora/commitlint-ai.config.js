@@ -5,7 +5,7 @@ export default {
 	provider: "anthropic",
 	ticket: {
 		missingBranchLintBehavior: "fallback",
-		normalization: "preserve",
+		normalization: "upper",
 		pattern: "[a-z]{2,}-[0-9]+",
 		patternFlags: "i",
 		source: "auto",

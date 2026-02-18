@@ -202,9 +202,9 @@ export class PromptsCliInterface implements ICliInterfaceService {
 	}
 
 	async text(message: string, _placeholder?: string, initialValue?: string, validate?: (value: string) => Error | string | undefined): Promise<string> {
-		// eslint-disable-next-line @elsikora/sonar/function-return-type
 		const promptsValidate: ((value: string) => boolean | string) | undefined = validate
-			? (value: string): boolean | string => {
+			? // eslint-disable-next-line @elsikora/sonar/function-return-type
+				(value: string): boolean | string => {
 					const validationResult: Error | string | undefined = validate(value);
 					let output: boolean | string = "Invalid input";
 
