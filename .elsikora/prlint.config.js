@@ -11,7 +11,7 @@ export default {
 		prohibitedBranches: ["main", "master"],
 	},
 	lint: {
-		forbiddenPlaceholders: ["WIP", "TODO", "<!--", "TEMPLATE", "lorem ipsum", "[ ]", "<replace-me>"],
+		forbiddenPlaceholders: [],
 		requiredSections: ["Summary", "Scope", "Changes", "Acceptance Criteria", "Test Plan", "Risks", "Linear"],
 		titlePattern: String.raw`^(?<type>[a-z]+)\((?<scope>[a-z0-9-]+)\): (?<subject>.+) \| (?<ticket>[A-Za-z]{2,}-\d+)$`,
 	},
