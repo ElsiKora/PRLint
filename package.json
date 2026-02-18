@@ -1,6 +1,6 @@
 {
 	"name": "@elsikora/prlint",
-	"version": "0.1.0-dev.1",
+	"version": "1.0.0-dev.1",
 	"description": "Standalone pull request linting, generation and create-or-update CLI",
 	"keywords": [
 		"pull-request",

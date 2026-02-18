@@ -79,9 +79,9 @@ Required tooling categories:
 
 ## Enforcement Checklist
 
-- [ ] all new files are lowercase
-- [ ] dependency direction follows clean architecture
-- [ ] all services resolved through DI container
-- [ ] config reads happen only via config service
-- [ ] all changes pass lint/types/unit gates
-- [ ] command output supports human and JSON formats
+- ❌ all new files are lowercase
+- ❌ dependency direction follows clean architecture
+- ❌ all services resolved through DI container
+- ❌ config reads happen only via config service
+- ❌ all changes pass lint/types/unit gates
+- ❌ command output supports human and JSON formats

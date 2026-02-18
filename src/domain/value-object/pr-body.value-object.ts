@@ -6,7 +6,7 @@ export class PrBody {
 		this.VALUE = value.trim();
 	}
 
-	/** Returns the trimmed body text. */
+	/** @returns {string} The trimmed body text. */
 	public getValue(): string {
 		return this.VALUE;
 	}

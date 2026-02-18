@@ -1,31 +1,36 @@
-import { EPrLintIssueCode } from "../enum/pr-lint-issue-code.enum";
 import type { IPrLintIssue } from "../interface/pr-lint-issue.interface";
 import type { PrBody } from "../value-object/pr-body.value-object";
 
+import { EPrLintIssueCode } from "../enum/pr-lint-issue-code.enum";
+
 /** Validates that all required sections exist in the PR body in the correct order. */
 export class BodySectionsPolicy {
-	/** Returns an issue if any required sections are missing or appear out of order. */
+	/**
+	 * @param {PrBody} body - The pull request body to validate.
+	 * @param {Array<string>} requiredSections - The required section headings.
+	 * @returns {IPrLintIssue | undefined} An issue if any required sections are missing or appear out of order.
+	 */
 	public static validate(body: PrBody, requiredSections: Array<string>): IPrLintIssue | undefined {
 		const bodyText: string = body.getValue();
 		const missingSections: Array<string> = [];
 		let lastIndex: number = -1;
-		let outOfOrder: boolean = false;
+		let isOutOfOrder: boolean = false;
 
 		for (const section of requiredSections) {
-			const escapedSection: string = section.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-			const pattern: RegExp = new RegExp(`^#{1,6}\\s+${escapedSection}`, "mi");
-			const match: RegExpExecArray | null = pattern.exec(bodyText);
+			const escapedSection: string = section.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+			const pattern: RegExp = new RegExp(`^#{1,6}\\s+${escapedSection}`, "im");
+			const match: null | RegExpExecArray = pattern.exec(bodyText);
 
 			if (!match) {
 				missingSections.push(section);
 			} else if (match.index < lastIndex) {
-				outOfOrder = true;
+				isOutOfOrder = true;
 			} else {
 				lastIndex = match.index;
 			}
 		}
 
-		if (missingSections.length === 0 && !outOfOrder) {
+		if (missingSections.length === 0 && !isOutOfOrder) {
 			return undefined;
 		}
 
@@ -35,7 +40,7 @@ export class BodySectionsPolicy {
 			details.push(`Missing sections: ${missingSections.join(", ")}`);
 		}
 
-		if (outOfOrder) {
+		if (isOutOfOrder) {
 			details.push("Sections are not in the expected order");
 		}
 

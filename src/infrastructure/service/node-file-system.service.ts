@@ -1,10 +1,13 @@
-import { access, readFile, writeFile } from "node:fs/promises";
-
 import type { IFileSystemService } from "../../application/interface/file-system-service.interface";
+
+import { access, readFile, writeFile } from "node:fs/promises";
 
 /** File system operations backed by Node.js fs/promises. */
 export class NodeFileSystemService implements IFileSystemService {
-	/** @param path - File path to check. @returns Whether the file exists. */
+	/**
+	 * @param {string} path - File path to check.
+	 * @returns {Promise<boolean>} Whether the file exists.
+	 */
 	async exists(path: string): Promise<boolean> {
 		try {
 			await access(path);
@@ -15,13 +18,19 @@ export class NodeFileSystemService implements IFileSystemService {
 		}
 	}
 
-	/** @param path - File path to read. @returns File contents as UTF-8 string. */
+	/**
+	 * @param {string} path - File path to read.
+	 * @returns {Promise<string>} File contents as UTF-8 string.
+	 */
 	async readFile(path: string): Promise<string> {
-		return readFile(path, "utf-8");
+		return readFile(path, "utf8");
 	}
 
-	/** @param path - Destination path. @param content - String content to write. */
+	/**
+	 * @param {string} path - Destination path.
+	 * @param {string} content - String content to write.
+	 */
 	async writeFile(path: string, content: string): Promise<void> {
-		await writeFile(path, content, "utf-8");
+		await writeFile(path, content, "utf8");
 	}
 }

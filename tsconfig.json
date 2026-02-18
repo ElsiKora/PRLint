@@ -25,11 +25,11 @@
 			"@infrastructure/*": ["infrastructure/*"],
 			"@presentation/*": ["presentation/*"]
 		},
-		"types": ["vitest/globals"],
 		"skipLibCheck": true,
 		"sourceMap": true,
 		"strict": true,
-		"target": "ESNext"
+		"target": "ESNext",
+		"types": ["vitest/globals"]
 	},
 	"exclude": ["node_modules", "dist"],
 	"include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "test/**/*.tsx"]

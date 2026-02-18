@@ -17,7 +17,7 @@ describe("CollectContextUseCase", () => {
 			getRemoteUrl: vi.fn().mockResolvedValue("https://github.com/org/repo"),
 		};
 		mockParser = {
-			parse: vi.fn().mockResolvedValue(new TicketId("ABC-123", ETicketNormalization.UPPER)),
+			parse: vi.fn().mockResolvedValue(new TicketId("ABC-123", ETicketNormalization.PRESERVE)),
 		};
 		useCase = new CollectContextUseCase(mockGitRepo, mockParser);
 	});

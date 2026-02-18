@@ -1,9 +1,11 @@
-import { createContainer } from "@elsikora/cladi";
 import type { IContainer } from "@elsikora/cladi";
-import "dotenv/config";
 
 import type { ILlmService } from "../../application/interface/llm-service.interface";
+
+import { createContainer } from "@elsikora/cladi";
+
 import { CollectContextUseCase } from "../../application/use-case/collect-context.use-case";
+import { ConfigureLlmUseCase } from "../../application/use-case/configure-llm.use-case";
 import { CreateOrUpdatePrUseCase } from "../../application/use-case/create-or-update-pr.use-case";
 import { FixPrUseCase } from "../../application/use-case/fix-pr.use-case";
 import { GeneratePrUseCase } from "../../application/use-case/generate-pr.use-case";
@@ -19,63 +21,61 @@ import { CosmicBranchLintConfigService } from "../service/cosmic-branch-lint-con
 import { CosmicConfigService } from "../service/cosmic-config.service";
 import { NodeCommandService } from "../service/node-command.service";
 import { NodeFileSystemService } from "../service/node-file-system.service";
-import {
-	BranchLintConfigServiceToken,
-	CollectContextUseCaseToken,
-	CommandServiceToken,
-	ConfigServiceToken,
-	CreateOrUpdatePrUseCaseToken,
-	FileSystemServiceToken,
-	FixPrUseCaseToken,
-	GeneratePrUseCaseToken,
-	GitHubRepoServiceToken,
-	GitRepoServiceToken,
-	LintPrUseCaseToken,
-	LlmServicesToken,
-	TicketIdParserToken,
-} from "./token.constant";
+import { PromptsCliInterface } from "../service/prompts-cli-interface.service";
 
-/** Assembles and returns the fully wired DI container for the application. */
-export async function createAppContainer(): Promise<IContainer> {
-	const container = createContainer({});
+import { BranchLintConfigServiceToken, CliInterfaceServiceToken, CollectContextUseCaseToken, CommandServiceToken, ConfigServiceToken, ConfigureLlmUseCaseToken, CreateOrUpdatePrUseCaseToken, FileSystemServiceToken, FixPrUseCaseToken, GeneratePrUseCaseToken, GitHubRepoServiceToken, GitRepoServiceToken, LintPrUseCaseToken, LlmServicesToken, TicketIdParserToken } from "./token.constant";
 
-	const commandService = new NodeCommandService();
+import "dotenv/config";
+
+/**
+ * Assembles and returns the fully wired DI container for the application.
+ * @returns {IContainer} The configured dependency injection container.
+ */
+export function createAppContainer(): IContainer {
+	const container: IContainer = createContainer({});
+
+	const commandService: NodeCommandService = new NodeCommandService();
 	container.register(CommandServiceToken, commandService);
 
-	const fileSystemService = new NodeFileSystemService();
+	const fileSystemService: NodeFileSystemService = new NodeFileSystemService();
 	container.register(FileSystemServiceToken, fileSystemService);
 
-	const configService = new CosmicConfigService();
+	const cliInterface: PromptsCliInterface = new PromptsCliInterface();
+	container.register(CliInterfaceServiceToken, cliInterface);
+
+	const configService: CosmicConfigService = new CosmicConfigService();
 	container.register(ConfigServiceToken, configService);
 
-	const branchLintConfigService = new CosmicBranchLintConfigService();
+	container.register(ConfigureLlmUseCaseToken, new ConfigureLlmUseCase(configService, cliInterface));
+
+	const branchLintConfigService: CosmicBranchLintConfigService = new CosmicBranchLintConfigService();
 	container.register(BranchLintConfigServiceToken, branchLintConfigService);
 
-	const gitRepoService = new GitRepoService(commandService);
+	const gitRepoService: GitRepoService = new GitRepoService(commandService);
 	container.register(GitRepoServiceToken, gitRepoService);
 
-	const ticketIdParser = new BranchTicketIdParser(configService, branchLintConfigService);
+	const ticketIdParser: BranchTicketIdParser = new BranchTicketIdParser(configService, branchLintConfigService);
 	container.register(TicketIdParserToken, ticketIdParser);
 
 	const llmServices: Array<ILlmService> = [];
 
-	if (process.env["OPENAI_API_KEY"]) {
-		llmServices.push(new OpenAILlmService(process.env["OPENAI_API_KEY"]));
+	if (process.env.OPENAI_API_KEY) {
+		llmServices.push(new OpenAILlmService(process.env.OPENAI_API_KEY));
 	}
 
-	if (process.env["ANTHROPIC_API_KEY"]) {
-		llmServices.push(new AnthropicLlmService(process.env["ANTHROPIC_API_KEY"]));
+	if (process.env.ANTHROPIC_API_KEY) {
+		llmServices.push(new AnthropicLlmService(process.env.ANTHROPIC_API_KEY));
 	}
 
-	if (process.env["GOOGLE_API_KEY"]) {
-		llmServices.push(new GoogleLlmService(process.env["GOOGLE_API_KEY"]));
+	if (process.env.GOOGLE_API_KEY) {
+		llmServices.push(new GoogleLlmService(process.env.GOOGLE_API_KEY));
 	}
 
-	llmServices.push(new OllamaLlmService(process.env["OLLAMA_BASE_URL"]));
+	llmServices.push(new OllamaLlmService(process.env.OLLAMA_BASE_URL));
 
 	container.register(LlmServicesToken, llmServices);
 
-	const githubRepoService = new GhCliGitHubRepoService(commandService);
+	const githubRepoService: GhCliGitHubRepoService = new GhCliGitHubRepoService(commandService);
 	container.register(GitHubRepoServiceToken, githubRepoService);
 
 	container.register(LintPrUseCaseToken, new LintPrUseCase());

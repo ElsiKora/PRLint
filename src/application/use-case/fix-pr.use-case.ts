@@ -5,17 +5,27 @@ import type { ILlmService } from "../interface/llm-service.interface";
 
 /** Re-generates PR content with lint issue feedback so the LLM can correct violations. */
 export class FixPrUseCase {
-	constructor(private readonly LLM_SERVICES: Array<ILlmService>) {}
+	private readonly LLM_SERVICES: Array<ILlmService>;
 
-	/** @param context - Current PR context including the failing title/body. @param provider - LLM provider to use. @param model - Model identifier. @param issues - Lint issues that must be resolved. @returns Fixed PR title and body. */
+	constructor(llmServices: Array<ILlmService>) {
+		this.LLM_SERVICES = llmServices;
+	}
+
+	/**
+	 * @param {IPrContext} context - Current PR context including the failing title/body.
+	 * @param {ELlmProvider} provider - LLM provider to use.
+	 * @param {string} model - Model identifier.
+	 * @param {Array<IPrLintIssue>} issues - Lint issues that must be resolved.
+	 * @returns {Promise<{body: string; title: string}>} Fixed PR title and body.
+	 */
 	async execute(context: IPrContext, provider: ELlmProvider, model: string, issues: Array<IPrLintIssue>): Promise<{ body: string; title: string }> {
-		const service = this.LLM_SERVICES.find((s) => s.getProvider() === provider);
+		const service: ILlmService | undefined = this.LLM_SERVICES.find((s: ILlmService) => s.getProvider() === provider);
 
 		if (!service) {
 			throw new Error(`No LLM service registered for provider: ${provider}`);
 		}
 
-		const issueBlock = issues.map((i) => `- [${i.code}] ${i.details}`).join("\n");
+		const issueBlock: string = issues.map((issue: IPrLintIssue) => `- [${issue.code}] ${issue.details}`).join("\n");
 
 		const fixContext: IPrContext = {
 			...context,
