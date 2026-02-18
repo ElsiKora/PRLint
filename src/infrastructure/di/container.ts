@@ -4,6 +4,7 @@ import "dotenv/config";
 
 import type { ILlmService } from "../../application/interface/llm-service.interface";
 import { CollectContextUseCase } from "../../application/use-case/collect-context.use-case";
+import { ConfigureLlmUseCase } from "../../application/use-case/configure-llm.use-case";
 import { CreateOrUpdatePrUseCase } from "../../application/use-case/create-or-update-pr.use-case";
 import { FixPrUseCase } from "../../application/use-case/fix-pr.use-case";
 import { GeneratePrUseCase } from "../../application/use-case/generate-pr.use-case";
@@ -19,11 +20,14 @@ import { CosmicBranchLintConfigService } from "../service/cosmic-branch-lint-con
 import { CosmicConfigService } from "../service/cosmic-config.service";
 import { NodeCommandService } from "../service/node-command.service";
 import { NodeFileSystemService } from "../service/node-file-system.service";
+import { PromptsCliInterface } from "../service/prompts-cli-interface.service";
 import {
 	BranchLintConfigServiceToken,
+	CliInterfaceServiceToken,
 	CollectContextUseCaseToken,
 	CommandServiceToken,
 	ConfigServiceToken,
+	ConfigureLlmUseCaseToken,
 	CreateOrUpdatePrUseCaseToken,
 	FileSystemServiceToken,
 	FixPrUseCaseToken,
@@ -45,8 +49,13 @@ export async function createAppContainer(): Promise<IContainer> {
 	const fileSystemService = new NodeFileSystemService();
 	container.register(FileSystemServiceToken, fileSystemService);
 
+	const cliInterface = new PromptsCliInterface();
+	container.register(CliInterfaceServiceToken, cliInterface);
+
 	const configService = new CosmicConfigService();
 	container.register(ConfigServiceToken, configService);
+
+	container.register(ConfigureLlmUseCaseToken, new ConfigureLlmUseCase(configService, cliInterface));
 
 	const branchLintConfigService = new CosmicBranchLintConfigService();
 	container.register(BranchLintConfigServiceToken, branchLintConfigService);

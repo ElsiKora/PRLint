@@ -1,0 +1,11 @@
+export const DEFAULT_MAX_RETRIES: number = 3;
+export const DEFAULT_VALIDATION_MAX_RETRIES: number = 3;
+export const LLM_TEMPERATURE: number = 0.7;
+export const MAX_RETRY_COUNT: number = 10;
+export const MAX_TOKENS: number = 4096;
+export const MIN_API_KEY_LENGTH: number = 8;
+export const MIN_RETRY_COUNT: number = 1;
+export const NOTE_BOX_CONTENT_PADDING: number = 2;
+export const NOTE_BOX_PADDING: number = 4;
+export const REDACTED_LENGTH: number = 4;
+export const RETRY_DELAY_MS: number = 1000;

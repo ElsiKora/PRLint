@@ -1,7 +1,9 @@
 export const BranchLintConfigServiceToken: symbol = Symbol.for("BranchLintConfigService");
+export const CliInterfaceServiceToken: symbol = Symbol.for("CliInterfaceService");
 export const CollectContextUseCaseToken: symbol = Symbol.for("CollectContextUseCase");
 export const CommandServiceToken: symbol = Symbol.for("CommandService");
 export const ConfigServiceToken: symbol = Symbol.for("ConfigService");
+export const ConfigureLlmUseCaseToken: symbol = Symbol.for("ConfigureLlmUseCase");
 export const CreateOrUpdatePrUseCaseToken: symbol = Symbol.for("CreateOrUpdatePrUseCase");
 export const FileSystemServiceToken: symbol = Symbol.for("FileSystemService");
 export const FixPrUseCaseToken: symbol = Symbol.for("FixPrUseCase");

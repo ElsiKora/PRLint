@@ -1,34 +1,31 @@
-import { cosmiconfig } from "cosmiconfig";
+import { mkdir } from "node:fs/promises";
+import { dirname } from "node:path";
 
-import { DEFAULT_FORBIDDEN_PLACEHOLDERS } from "../../domain/constant/forbidden-placeholders.constant";
+import { cosmiconfig } from "cosmiconfig";
+import { stringify } from "javascript-stringify";
+
+import { CONFIG_FILE_DIRECTORY } from "../../application/constant/config-file-directory.constant";
+import { CONFIG_MODULE_NAME } from "../../application/constant/config-module-name.constant";
+import type { IConfigService } from "../../application/interface/config-service.interface";
 import { DEFAULT_REQUIRED_SECTIONS } from "../../domain/constant/default-sections.constant";
+import { DEFAULT_FORBIDDEN_PLACEHOLDERS } from "../../domain/constant/forbidden-placeholders.constant";
 import { DEFAULT_TITLE_PATTERN } from "../../domain/constant/default-title-pattern.constant";
-import { ELlmProvider } from "../../domain/enum/llm-provider.enum";
+import { DEFAULT_BASE_BRANCH, DEFAULT_DRAFT, DEFAULT_PROHIBITED_BRANCHES } from "../../domain/constant/github.constant";
+import { DEFAULT_MAX_RETRIES, DEFAULT_VALIDATION_MAX_RETRIES } from "../../domain/constant/numeric.constant";
+import { DEFAULT_TICKET_PATTERN_FLAGS, DEFAULT_TICKET_PATTERN_SOURCE } from "../../domain/constant/ticket.constant";
 import { ETicketNormalization } from "../../domain/enum/ticket-normalization.enum";
 import { ETicketSource } from "../../domain/enum/ticket-source.enum";
 import type { IPrLintFullConfig } from "../../domain/interface/prlint-config.interface";
-import type { IConfigService } from "../../application/interface/config-service.interface";
-
-const SEARCH_PLACES: Array<string> = [
-	".elsikora/prlint.config.cjs",
-	".elsikora/prlint.config.js",
-	".elsikora/prlint.config.json",
-	".elsikora/prlint.config.mjs",
-	".elsikora/prlint.config.ts",
-	".elsikora/prlint.config.yaml",
-	".elsikora/prlint.config.yml",
-];
 
 const DEFAULT_CONFIG: IPrLintFullConfig = {
 	generation: {
-		model: "gpt-4o-mini",
-		provider: ELlmProvider.OPENAI,
-		retries: 3,
-		validationRetries: 3,
+		retries: DEFAULT_MAX_RETRIES,
+		validationRetries: DEFAULT_VALIDATION_MAX_RETRIES,
 	},
 	github: {
-		base: "main",
-		draft: false,
+		base: DEFAULT_BASE_BRANCH,
+		draft: DEFAULT_DRAFT,
+		prohibitedBranches: DEFAULT_PROHIBITED_BRANCHES,
 	},
 	lint: {
 		forbiddenPlaceholders: DEFAULT_FORBIDDEN_PLACEHOLDERS,
@@ -37,8 +34,8 @@ const DEFAULT_CONFIG: IPrLintFullConfig = {
 	},
 	ticket: {
 		normalization: ETicketNormalization.PRESERVE,
-		pattern: "[a-z]{2,}-[0-9]+",
-		patternFlags: "i",
+		pattern: DEFAULT_TICKET_PATTERN_SOURCE,
+		patternFlags: DEFAULT_TICKET_PATTERN_FLAGS,
 		source: ETicketSource.AUTO,
 	},
 };
@@ -47,7 +44,24 @@ const DEFAULT_CONFIG: IPrLintFullConfig = {
 export class CosmicConfigService implements IConfigService {
 	private cachedConfig: IPrLintFullConfig | undefined;
 
-	private readonly EXPLORER = cosmiconfig("prlint", { searchPlaces: SEARCH_PLACES });
+	private readonly EXPLORER = cosmiconfig(CONFIG_MODULE_NAME, {
+		packageProp: `${CONFIG_FILE_DIRECTORY.replace(".", "")}.${CONFIG_MODULE_NAME}`,
+		searchPlaces: [
+			"package.json",
+			`${CONFIG_FILE_DIRECTORY}/.${CONFIG_MODULE_NAME}rc`,
+			`${CONFIG_FILE_DIRECTORY}/.${CONFIG_MODULE_NAME}rc.json`,
+			`${CONFIG_FILE_DIRECTORY}/.${CONFIG_MODULE_NAME}rc.yaml`,
+			`${CONFIG_FILE_DIRECTORY}/.${CONFIG_MODULE_NAME}rc.yml`,
+			`${CONFIG_FILE_DIRECTORY}/.${CONFIG_MODULE_NAME}rc.js`,
+			`${CONFIG_FILE_DIRECTORY}/.${CONFIG_MODULE_NAME}rc.ts`,
+			`${CONFIG_FILE_DIRECTORY}/.${CONFIG_MODULE_NAME}rc.mjs`,
+			`${CONFIG_FILE_DIRECTORY}/.${CONFIG_MODULE_NAME}rc.cjs`,
+			`${CONFIG_FILE_DIRECTORY}/${CONFIG_MODULE_NAME}.config.js`,
+			`${CONFIG_FILE_DIRECTORY}/${CONFIG_MODULE_NAME}.config.ts`,
+			`${CONFIG_FILE_DIRECTORY}/${CONFIG_MODULE_NAME}.config.mjs`,
+			`${CONFIG_FILE_DIRECTORY}/${CONFIG_MODULE_NAME}.config.cjs`,
+		],
+	});
 
 	/** @returns Whether a prlint config file exists on disk. */
 	async exists(): Promise<boolean> {
@@ -87,8 +101,18 @@ export class CosmicConfigService implements IConfigService {
 		};
 	}
 
-	/** @param config - Full config to cache (does not persist to disk). */
+	/** @param config - Full config to persist to disk and cache in memory. */
 	async save(config: IPrLintFullConfig): Promise<void> {
 		this.cachedConfig = config;
+
+		const result = await this.EXPLORER.search();
+		const filepath = result?.filepath ?? `${CONFIG_FILE_DIRECTORY}/${CONFIG_MODULE_NAME}.config.js`;
+
+		const dir = dirname(filepath);
+		await mkdir(dir, { recursive: true });
+
+		const content = `export default ${stringify(config, null, "\t")};\n`;
+		const { writeFile } = await import("node:fs/promises");
+		await writeFile(filepath, content, "utf-8");
 	}
 }

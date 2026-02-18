@@ -2,6 +2,7 @@ import type { IContainer } from "@elsikora/cladi";
 import yargs, { type Argv } from "yargs";
 import { hideBin } from "yargs/helpers";
 
+import { CONFIG_MODULE_NAME } from "./application/constant/config-module-name.constant";
 import { createAppContainer } from "./infrastructure/di/container";
 import { ContextCommand } from "./presentation/cli/command/context.command";
 import { CreateCommand } from "./presentation/cli/command/create.command";
@@ -16,7 +17,7 @@ async function main(): Promise<void> {
 	const container: IContainer = await createAppContainer();
 
 	await yargs(hideBin(process.argv))
-		.scriptName("prlint")
+		.scriptName(CONFIG_MODULE_NAME)
 		.usage("$0 <command> [options]")
 		.command(
 			"context",
