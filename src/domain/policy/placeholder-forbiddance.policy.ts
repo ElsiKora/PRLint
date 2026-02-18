@@ -19,7 +19,7 @@ export class PlaceholderForbiddancePolicy {
 
 		for (const placeholder of forbiddenPlaceholders) {
 			const escaped: string = placeholder.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`);
-			const regex: RegExp = new RegExp(`(?<![a-zA-Z0-9-])${escaped}(?![a-zA-Z0-9-])`, "iu");
+			const regex: RegExp = new RegExp(`(?<![a-zA-Z0-9-])${escaped}(?![a-zA-Z0-9-])`, "u");
 			const isInTitle: boolean = regex.test(titleText);
 			const isInBody: boolean = regex.test(bodyText);
 

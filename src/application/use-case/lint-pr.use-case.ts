@@ -102,7 +102,7 @@ export class LintPrUseCase {
  */
 function containsForbiddenPlaceholder(text: string, placeholder: string): boolean {
 	const escaped: string = placeholder.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`);
-	const regex: RegExp = new RegExp(`(?<![a-zA-Z0-9-])${escaped}(?![a-zA-Z0-9-])`, "iu");
+	const regex: RegExp = new RegExp(`(?<![a-zA-Z0-9-])${escaped}(?![a-zA-Z0-9-])`, "u");
 
 	return regex.test(text);
 }
