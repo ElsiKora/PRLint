@@ -53,7 +53,7 @@ export class BranchTicketIdParser implements ITicketIdParser {
 
 				if (!branchLintMatch.isConfigured) {
 					if (ticketConfig.missingBranchLintBehavior === ETicketMissingBranchLintBehavior.ERROR) {
-						throw new Error(['ticket.source is "branch-lint" but no compatible git-branch-lint rule was found.', 'Expected rules["branch-name-pattern"] with a :ticket placeholder.'].join(" "));
+						throw new Error(['ticket.source is "branch-lint" but no compatible git-branch-lint rule was found.', 'Expected rules["branch-pattern"] with a :ticket placeholder.'].join(" "));
 					}
 
 					return this.fromPattern(branchName, ticketConfig);
@@ -225,7 +225,12 @@ export class BranchTicketIdParser implements ITicketIdParser {
 	}
 
 	private resolveBranchNamePatternSource(branchLintConfig: IBranchLintConfig | undefined): string | undefined {
-		const rulePayload: unknown = this.getRulePayload(branchLintConfig, "branch-name-pattern");
+		const rulePayload: unknown = this.getRulePayload(branchLintConfig, "branch-pattern");
+
+		if (typeof rulePayload === "string" && rulePayload.trim().length > 0) {
+			return rulePayload;
+		}
+
 		const ruleValue: unknown = this.extractRuleValue(rulePayload);
 
 		if (typeof ruleValue === "string" && ruleValue.trim().length > 0) {
@@ -243,15 +248,15 @@ export class BranchTicketIdParser implements ITicketIdParser {
 
 	// eslint-disable-next-line @elsikora/sonar/function-return-type
 	private resolveBranchSubjectPatternSource(branchLintConfig: IBranchLintConfig | undefined): TSubjectPatternSource {
-		const rulePayload: unknown = this.getRulePayload(branchLintConfig, "branch-name-pattern-subject");
-		const ruleValue: unknown = this.extractRuleValue(rulePayload);
+		const rulePayload: unknown = this.getRulePayload(branchLintConfig, "branch-subject-pattern");
+		const resolvedValue: unknown = typeof rulePayload === "string" || (rulePayload && typeof rulePayload === "object" && !Array.isArray(rulePayload)) ? rulePayload : this.extractRuleValue(rulePayload);
 
 		let result: TSubjectPatternSource;
 
-		if (typeof ruleValue === "string") {
-			result = ruleValue;
-		} else if (ruleValue && typeof ruleValue === "object") {
-			const normalizedEntries: Array<readonly [string, string]> = Object.entries(ruleValue as Record<string, unknown>)
+		if (typeof resolvedValue === "string") {
+			result = resolvedValue;
+		} else if (resolvedValue && typeof resolvedValue === "object") {
+			const normalizedEntries: Array<readonly [string, string]> = Object.entries(resolvedValue as Record<string, unknown>)
 				.filter(([, entryValue]: [string, unknown]) => typeof entryValue === "string")
 				.map(([entryKey, entryValue]: [string, unknown]) => [entryKey, entryValue as string] as const);
 
