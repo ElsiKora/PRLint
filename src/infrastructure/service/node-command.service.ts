@@ -1,19 +1,26 @@
+import type { ICommandService } from "../../application/interface/command-service.interface";
+
 import { execSync } from "node:child_process";
 
-import type { ICommandService } from "../../application/interface/command-service.interface";
+import { COMMAND_PREVIEW_WORD_COUNT } from "../../domain/constant/numeric.constant";
 
 /** Executes shell commands using Node.js child_process. */
 export class NodeCommandService implements ICommandService {
-	/** @param command - Shell command to execute. @returns Trimmed stdout output. */
-	async execute(command: string): Promise<string> {
+	/**
+	 * @param {string} command - Shell command to execute.
+	 * @returns {Promise<string>} Trimmed stdout output.
+	 */
+	execute(command: string): Promise<string> {
 		try {
-			const output = execSync(command, { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] });
+			// eslint-disable-next-line @elsikora/sonar/os-command
+			const output: string = execSync(command, { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
 
-			return output.trim();
+			return Promise.resolve(output.trim());
 		} catch (error: unknown) {
-			const stderr = (error as { stderr?: string }).stderr?.trim() ?? "";
-			const message = stderr || (error instanceof Error ? error.message : String(error));
-			const cleanMessage = message
+			const stderr: string = (error as { stderr?: string }).stderr?.trim() ?? "";
+			const message: string = stderr || (error instanceof Error ? error.message : String(error));
+
+			const cleanMessage: string = message
 				.split("\n")
 				.filter((line: string) => !line.startsWith("Use '--' to separate"))
 				.filter((line: string) => !line.startsWith("'git <command>"))
@@ -21,7 +28,7 @@ export class NodeCommandService implements ICommandService {
 				.join(" ")
 				.trim();
 
-			throw new Error(`Command \`${command.split(" ").slice(0, 3).join(" ")}\` failed: ${cleanMessage}`);
+			return Promise.reject(new Error(`Command \`${command.split(" ").slice(0, COMMAND_PREVIEW_WORD_COUNT).join(" ")}\` failed: ${cleanMessage}`));
 		}
 	}
 }

@@ -1,6 +1,8 @@
 import type { ILlmService } from "../../application/interface/llm-service.interface";
-import { ELlmProvider } from "../../domain/enum/llm-provider.enum";
 import type { IPrContext } from "../../domain/interface/pr-context.interface";
+
+import { ELlmProvider } from "../../domain/enum/llm-provider.enum";
+
 import { buildUserPrompt } from "./build-user-prompt.function";
 import { parseLlmResponse } from "./parse-llm-response.function";
 import { PR_GENERATION_SYSTEM_PROMPT } from "./pr-generation-prompt.constant";
@@ -13,17 +15,24 @@ export class OllamaLlmService implements ILlmService {
 		this.BASE_URL = baseUrl;
 	}
 
-	/** @param context - PR context. @param model - Ollama model name. @returns Generated title and body. */
+	/**
+	 * @param {IPrContext} context - PR context.
+	 * @param {string} model - Ollama model name.
+	 * @returns {Promise<{ body: string; title: string }>} Generated title and body.
+	 */
 	async generate(context: IPrContext, model: string): Promise<{ body: string; title: string }> {
-		const response = await fetch(`${this.BASE_URL}/api/chat`, {
-			body: JSON.stringify({
-				messages: [
-					{ content: PR_GENERATION_SYSTEM_PROMPT, role: "system" },
-					{ content: buildUserPrompt(context), role: "user" },
-				],
-				model,
-				stream: false,
-			}),
+		const requestBody: Record<string, unknown> = {
+			messages: [
+				{ content: PR_GENERATION_SYSTEM_PROMPT, role: "system" },
+				{ content: buildUserPrompt(context), role: "user" },
+			],
+			model,
+			["stream"]: false,
+		};
+
+		// eslint-disable-next-line @elsikora/node/no-unsupported-features/node-builtins
+		const response: Response = await fetch(`${this.BASE_URL}/api/chat`, {
+			body: JSON.stringify(requestBody),
 			headers: { "Content-Type": "application/json" },
 			method: "POST",
 		});
@@ -32,12 +41,12 @@ export class OllamaLlmService implements ILlmService {
 			throw new Error(`Ollama API returned ${String(response.status)}: ${await response.text()}`);
 		}
 
-		const data = (await response.json()) as { message: { content: string } };
+		const data: { message: { content: string } } = (await response.json()) as { message: { content: string } };
 
 		return parseLlmResponse(data.message.content);
 	}
 
-	/** @returns The Ollama provider enum value. */
+	/** @returns {ELlmProvider} The Ollama provider enum value. */
 	getProvider(): ELlmProvider {
 		return ELlmProvider.OLLAMA;
 	}

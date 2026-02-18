@@ -1,0 +1,17 @@
+export enum EOllamaModel {
+	CODELLAMA = "codellama",
+	CUSTOM = "custom",
+	GEMMA3 = "gemma3",
+	LLAMA3_1 = "llama3.1",
+	LLAMA3_2 = "llama3.2",
+	LLAMA3_3 = "llama3.3",
+	LLAMA4 = "llama4",
+	MIXTRAL = "mixtral",
+	PHI3 = "phi3",
+	PHI4 = "phi4",
+	PHI4_MINI = "phi4-mini",
+	QWEN2_5 = "qwen2.5",
+	QWEN2_5_CODER = "qwen2.5-coder",
+	QWEN3 = "qwen3",
+	QWEN3_CODER = "qwen3-coder",
+}

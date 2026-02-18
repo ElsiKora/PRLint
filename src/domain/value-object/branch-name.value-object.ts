@@ -12,7 +12,7 @@ export class BranchName {
 		this.VALUE = normalizedValue;
 	}
 
-	/** Returns the branch name string. */
+	/** @returns {string} The branch name string. */
 	public getValue(): string {
 		return this.VALUE;
 	}

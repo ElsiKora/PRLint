@@ -26,7 +26,7 @@ export class TicketId {
 		}
 	}
 
-	/** @returns The normalized ticket identifier string. */
+	/** @returns {string} The normalized ticket identifier string. */
 	public getValue(): string {
 		return this.VALUE;
 	}

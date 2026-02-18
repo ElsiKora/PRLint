@@ -1,70 +1,163 @@
 import type { IContainer } from "@elsikora/cladi";
+import type { Ora } from "ora";
+
+import type { ICliInterfaceService } from "../../../application/interface/cli-interface-service.interface";
+import type { IConfigService } from "../../../application/interface/config-service.interface";
+import type { ILlmService } from "../../../application/interface/llm-service.interface";
+import type { CollectContextUseCase } from "../../../application/use-case/collect-context.use-case";
+import type { ConfigureLlmUseCase } from "../../../application/use-case/configure-llm.use-case";
+import type { LintPrUseCase } from "../../../application/use-case/lint-pr.use-case";
+import type { LlmConfiguration } from "../../../domain/entity/llm-configuration.entity";
+import type { IPrContext } from "../../../domain/interface/pr-context.interface";
+import type { IPrLintResult } from "../../../domain/interface/pr-lint-result.interface";
+import type { IPrLintFullConfig } from "../../../domain/interface/prlint-config.interface";
+
 import chalk from "chalk";
 import ora from "ora";
 
-import type { IConfigService } from "../../../application/interface/config-service.interface";
-import { CollectContextUseCase } from "../../../application/use-case/collect-context.use-case";
 import { FixPrUseCase } from "../../../application/use-case/fix-pr.use-case";
-import { GeneratePrUseCase } from "../../../application/use-case/generate-pr.use-case";
-import { LintPrUseCase } from "../../../application/use-case/lint-pr.use-case";
-import { CollectContextUseCaseToken, ConfigServiceToken, FixPrUseCaseToken, GeneratePrUseCaseToken, LintPrUseCaseToken } from "../../../infrastructure/di/token.constant";
+import { JSON_INDENT, SEPARATOR_WIDTH } from "../../../domain/constant/numeric.constant";
+import { ELlmProvider } from "../../../domain/enum/llm-provider.enum";
+import { CliInterfaceServiceToken, CollectContextUseCaseToken, ConfigServiceToken, ConfigureLlmUseCaseToken, LintPrUseCaseToken, LlmServicesToken } from "../../../infrastructure/di/token.constant";
+import { AnthropicLlmService } from "../../../infrastructure/llm/anthropic-llm.service";
+import { GoogleLlmService } from "../../../infrastructure/llm/google-llm.service";
+import { OllamaLlmService } from "../../../infrastructure/llm/ollama-llm.service";
+import { OpenAILlmService } from "../../../infrastructure/llm/openai-llm.service";
 import { HumanPresenter } from "../../presenter/human.presenter";
+import { resolveLlmConfiguration } from "../helper/resolve-llm-configuration.function";
 
 /** CLI command that generates, lints, and iteratively fixes PR content until it passes. */
 export class FixCommand {
-	constructor(private readonly CONTAINER: IContainer) {}
+	private readonly CONTAINER: IContainer;
 
-	/** @param options - Command options. */
+	constructor(container: IContainer) {
+		this.CONTAINER = container;
+	}
+
+	/**
+	 * @param {object} options - Command options.
+	 * @param {boolean} options.isJson - Whether to output as JSON.
+	 */
 	async execute(options: { isJson?: boolean }): Promise<void> {
-		const spinner = options.isJson ? undefined : ora("Generating PR content...").start();
+		const spinner: Ora | undefined = options.isJson ? undefined : ora("Generating PR content...").start();
 
 		try {
-			const configService = this.CONTAINER.get<IConfigService>(ConfigServiceToken)!;
-			const collectContext = this.CONTAINER.get<CollectContextUseCase>(CollectContextUseCaseToken)!;
-			const generatePr = this.CONTAINER.get<GeneratePrUseCase>(GeneratePrUseCaseToken)!;
-			const fixPr = this.CONTAINER.get<FixPrUseCase>(FixPrUseCaseToken)!;
-			const lintPr = this.CONTAINER.get<LintPrUseCase>(LintPrUseCaseToken)!;
+			const configService: IConfigService | undefined = this.CONTAINER.get<IConfigService>(ConfigServiceToken);
 
-			const config = await configService.get();
-			const context = await collectContext.execute(config.github.base);
+			if (!configService) {
+				throw new Error("ConfigService not registered in container");
+			}
+
+			const collectContext: CollectContextUseCase | undefined = this.CONTAINER.get<CollectContextUseCase>(CollectContextUseCaseToken);
+
+			if (!collectContext) {
+				throw new Error("CollectContextUseCase not registered in container");
+			}
+
+			const lintPr: LintPrUseCase | undefined = this.CONTAINER.get<LintPrUseCase>(LintPrUseCaseToken);
+
+			if (!lintPr) {
+				throw new Error("LintPrUseCase not registered in container");
+			}
+
+			const configureLlm: ConfigureLlmUseCase | undefined = this.CONTAINER.get<ConfigureLlmUseCase>(ConfigureLlmUseCaseToken);
+
+			if (!configureLlm) {
+				throw new Error("ConfigureLlmUseCase not registered in container");
+			}
+
+			const cliInterface: ICliInterfaceService | undefined = this.CONTAINER.get<ICliInterfaceService>(CliInterfaceServiceToken);
+
+			if (!cliInterface) {
+				throw new Error("CliInterfaceService not registered in container");
+			}
+
+			spinner?.stop();
+
+			const llmConfig: LlmConfiguration = await resolveLlmConfiguration(configService, configureLlm, cliInterface);
+			const model: string | undefined = llmConfig.getModel();
+
+			if (!model) {
+				throw new Error("No model configured. Re-run setup and select an LLM model.");
+			}
+
+			const llmServices: Array<ILlmService> = this.CONTAINER.get<Array<ILlmService>>(LlmServicesToken) ?? [];
+			const existingService: ILlmService | undefined = llmServices.find((s: ILlmService) => s.getProvider() === llmConfig.getProvider());
+			const llmService: ILlmService = existingService ?? resolveLlmService(llmConfig);
+
+			if (spinner) {
+				spinner.start();
+				spinner.text = "Collecting context...";
+			}
+
+			const config: IPrLintFullConfig = await configService.get();
+			const context: IPrContext = await collectContext.execute(config.github.base);
 
 			if (spinner) spinner.text = "Calling LLM...";
-			let generated = await generatePr.execute(context, config.generation.provider, config.generation.model);
+			let generated: { body: string; title: string } = await llmService.generate(context, model);
 
-			const maxRetries = config.generation.validationRetries;
+			const fixPr: FixPrUseCase = new FixPrUseCase([llmService]);
+			const maxRetries: number = config.generation.validationRetries;
 
-			for (let attempt = 0; attempt < maxRetries; attempt++) {
+			for (let attempt: number = 0; attempt < maxRetries; attempt++) {
 				if (spinner) spinner.text = `Validating (attempt ${String(attempt + 1)}/${String(maxRetries)})...`;
-				const lintContext = { ...context, body: generated.body, title: generated.title };
-				const result = await lintPr.execute(lintContext, config.lint, config.ticket);
+				const lintContext: IPrContext = { ...context, body: generated.body, title: generated.title };
+				const result: IPrLintResult = lintPr.execute(lintContext, config.lint, config.ticket);
 
-				if (result.pass) {
+				if (result.isPassed) {
 					spinner?.stop();
 
 					if (options.isJson) {
-						console.log(JSON.stringify({ lint: result, ...generated }, null, 2));
+						cliInterface.log(JSON.stringify({ lint: result, ...generated }, null, JSON_INDENT));
 					} else {
-						console.log(chalk.bold.cyan("Fixed PR"));
-						console.log(chalk.gray("─".repeat(40)));
-						console.log(`${chalk.bold("Title:")} ${generated.title}\n`);
-						console.log(generated.body);
-						console.log();
-						console.log(HumanPresenter.presentLintResult(result));
+						cliInterface.log(chalk.bold.cyan("Fixed PR"));
+						cliInterface.log(chalk.gray("─".repeat(SEPARATOR_WIDTH)));
+						cliInterface.log(`${chalk.bold("Title:")} ${generated.title}\n`);
+						cliInterface.log(generated.body);
+						cliInterface.log("");
+						cliInterface.log(HumanPresenter.presentLintResult(result));
 					}
 
 					return;
 				}
 
 				if (spinner) spinner.text = `Fixing issues (attempt ${String(attempt + 1)}/${String(maxRetries)})...`;
-				generated = await fixPr.execute(lintContext, config.generation.provider, config.generation.model, result.issues);
+				generated = await fixPr.execute(lintContext, llmConfig.getProvider(), model, result.issues);
 			}
 
 			spinner?.fail("Could not produce lint-passing PR within retry limit");
 			process.exitCode = 1;
 		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error);
+			const message: string = error instanceof Error ? error.message : String(error);
 			spinner?.fail(message);
 			process.exitCode = 1;
+		}
+	}
+}
+
+/**
+ * Resolves the appropriate LLM service implementation based on the configured provider.
+ * @param {LlmConfiguration} config - LLM configuration containing provider and API key.
+ * @returns {ILlmService} The instantiated LLM service for the configured provider.
+ */
+function resolveLlmService(config: LlmConfiguration): ILlmService {
+	const key: string = config.getApiKey().getValue();
+
+	switch (config.getProvider()) {
+		case ELlmProvider.ANTHROPIC: {
+			return new AnthropicLlmService(key);
+		}
+
+		case ELlmProvider.GOOGLE: {
+			return new GoogleLlmService(key);
+		}
+
+		case ELlmProvider.OLLAMA: {
+			return new OllamaLlmService(key);
+		}
+
+		case ELlmProvider.OPENAI: {
+			return new OpenAILlmService(key);
 		}
 	}
 }
