@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/ElsiKora/PRLint/compare/v1.0.1...v1.0.2) (2026-02-18)
+
+
+### Bug Fixes
+
+* **bin:** update prlint binary entry point to cli.js ([ce51b8a](https://github.com/ElsiKora/PRLint/commit/ce51b8ac4cc816a41a40784dda817e9132200459))
+
 ## [1.0.1](https://github.com/ElsiKora/PRLint/compare/v1.0.0...v1.0.1) (2026-02-18)
 
 # 1.0.0 (2026-02-18)
