@@ -18,9 +18,10 @@ export class PlaceholderForbiddancePolicy {
 		const bodyText: string = body.getValue();
 
 		for (const placeholder of forbiddenPlaceholders) {
-			const lowerPlaceholder: string = placeholder.toLowerCase();
-			const isInTitle: boolean = titleText.toLowerCase().includes(lowerPlaceholder);
-			const isInBody: boolean = bodyText.toLowerCase().includes(lowerPlaceholder);
+			const escaped: string = placeholder.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`);
+			const regex: RegExp = new RegExp(`(?<![a-zA-Z0-9-])${escaped}(?![a-zA-Z0-9-])`, "iu");
+			const isInTitle: boolean = regex.test(titleText);
+			const isInBody: boolean = regex.test(bodyText);
 
 			if (isInTitle || isInBody) {
 				const locations: Array<string> = [];

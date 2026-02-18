@@ -63,9 +63,7 @@ export class LintPrUseCase {
 		}
 
 		for (const placeholder of lintConfig.forbiddenPlaceholders) {
-			const lowerPlaceholder: string = placeholder.toLowerCase();
-
-			if (context.body.toLowerCase().includes(lowerPlaceholder) || context.title.toLowerCase().includes(lowerPlaceholder)) {
+			if (containsForbiddenPlaceholder(context.title, placeholder) || containsForbiddenPlaceholder(context.body, placeholder)) {
 				issues.push({
 					code: EPrLintIssueCode.FORBIDDEN_PLACEHOLDER,
 					details: `Contains forbidden placeholder: "${placeholder}"`,
@@ -95,6 +93,18 @@ export class LintPrUseCase {
 			issues,
 		};
 	}
+}
+
+/**
+ * @param {string} text - The text to search within.
+ * @param {string} placeholder - The forbidden placeholder to match.
+ * @returns {boolean} Whether the placeholder appears as a standalone token (not inside a compound word).
+ */
+function containsForbiddenPlaceholder(text: string, placeholder: string): boolean {
+	const escaped: string = placeholder.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`);
+	const regex: RegExp = new RegExp(`(?<![a-zA-Z0-9-])${escaped}(?![a-zA-Z0-9-])`, "iu");
+
+	return regex.test(text);
 }
 
 /**
